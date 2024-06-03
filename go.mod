@@ -427,3 +427,8 @@ require (
 	sigs.k8s.io/kustomize/kyaml v0.14.3-0.20230601165947-6ce0bf390ce3 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1 // indirect
 )
+
+replace (
+	github.com/masahiro331/go-disk => github.com/yusuke-koyoshi/go-disk v0.0.0-20240603062818-7398fb71ffa9
+	github.com/masahiro331/go-ext4-filesystem => github.com/yusuke-koyoshi/go-ext4-filesystem v0.0.0-20240603061535-9a727bcf7f3d
+)
