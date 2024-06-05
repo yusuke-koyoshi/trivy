@@ -2179,8 +2179,8 @@ github.com/yusufpapurcu/wmi v1.2.4 h1:zFUKzehAFReQwLys1b/iSMl+JQGSCSjtVqQn9bBrPo
 github.com/yusufpapurcu/wmi v1.2.4/go.mod h1:SBZ9tNy3G9/m5Oi98Zks0QjeHVDvuK0qfxQmPyzfmi0=
 github.com/yusuke-koyoshi/go-disk v0.0.0-20240603062818-7398fb71ffa9 h1:IuSOJGvJrU/bc+JPiRjCBCJph2jMyaS0/YjT2DQI6ws=
 github.com/yusuke-koyoshi/go-disk v0.0.0-20240603062818-7398fb71ffa9/go.mod h1:J7Vb0sf0JzOhT0uHTeCqO6dqP/ELVcQvQ6yQ/56ZRGw=
-github.com/yusuke-koyoshi/go-ext4-filesystem v0.0.0-20240604015655-657dae6a33cd h1:ybcPnnhup4J6Sa1O+J0k6NAldb2O+/q61nCccDDDe4Q=
-github.com/yusuke-koyoshi/go-ext4-filesystem v0.0.0-20240604015655-657dae6a33cd/go.mod h1:3XMMY1M486mWGTD13WPItg6FsgflQR72ZMAkd+gsyoQ=
+github.com/yusuke-koyoshi/go-ext4-filesystem v0.0.0-20240605064439-33e25d1567c9 h1:G0qjVOIa7DqGgqEvbSaUEAhPWQWJxIukxH3sgAUsIyk=
+github.com/yusuke-koyoshi/go-ext4-filesystem v0.0.0-20240605064439-33e25d1567c9/go.mod h1:3XMMY1M486mWGTD13WPItg6FsgflQR72ZMAkd+gsyoQ=
 github.com/yvasiyarov/go-metrics v0.0.0-20140926110328-57bccd1ccd43 h1:+lm10QQTNSBd8DVTNGHx7o/IKu9HYDvLMffDhbyLccI=
 github.com/yvasiyarov/go-metrics v0.0.0-20140926110328-57bccd1ccd43/go.mod h1:aX5oPXxHm3bOH+xeAttToC8pqch2ScQN/JoXYupl6xs=
 github.com/yvasiyarov/gorelic v0.0.0-20141212073537-a9bba5b9ab50 h1:hlE8//ciYMztlGpl/VA+Zm1AcTPHYkHJPbHqE6WJUXE=
