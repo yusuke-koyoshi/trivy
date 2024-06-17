@@ -430,5 +430,5 @@ require (
 
 replace (
 	github.com/masahiro331/go-disk => github.com/yusuke-koyoshi/go-disk v0.0.0-20240603062818-7398fb71ffa9
-	github.com/masahiro331/go-ext4-filesystem => github.com/yusuke-koyoshi/go-ext4-filesystem v0.0.0-20240605064439-33e25d1567c9
+	github.com/masahiro331/go-ext4-filesystem => github.com/yusuke-koyoshi/go-ext4-filesystem v0.0.0-20240614050107-6874c8042a56
 )
