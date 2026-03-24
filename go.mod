@@ -512,3 +512,13 @@ tool (
 	golang.org/x/tools/cmd/goyacc
 	sigs.k8s.io/kind
 )
+
+replace github.com/masahiro331/go-ext4-filesystem => github.com/yusuke-koyoshi/go-ext4-filesystem v0.0.0-20260425184122-3cf9d2f35b22
+
+replace github.com/masahiro331/go-xfs-filesystem => github.com/yusuke-koyoshi/go-xfs-filesystem v0.0.0-20260429132402-9a1064e1f61e
+
+replace github.com/masahiro331/go-vmdk-parser => github.com/yusuke-koyoshi/go-vmdk-parser v0.0.0-20260425175348-040a3994f0b4
+
+replace github.com/masahiro331/go-disk => github.com/yusuke-koyoshi/go-disk v0.0.0-20260425192820-aa441f4ebb72
+
+replace github.com/masahiro331/go-ebs-file => github.com/yusuke-koyoshi/go-ebs-file v0.0.0-20260422020928-9d24e29aac27
