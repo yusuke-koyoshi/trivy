@@ -123,11 +123,13 @@ func (w *VM) diskWalk(root string, partition types.Partition) error {
 
 func (w *VM) fsWalk(fsys fs.FS, path string, d fs.DirEntry, err error) error {
 	if err != nil {
-		return xerrors.Errorf("fs.Walk error: %w", err)
+		w.logger.Warn("Walk error", log.String("path", path), log.Err(err))
+		return nil
 	}
 	fi, err := d.Info()
 	if err != nil {
-		return xerrors.Errorf("dir entry info error: %w", err)
+		w.logger.Warn("Dir entry info error", log.String("path", path), log.Err(err))
+		return nil
 	}
 	pathName := strings.TrimPrefix(filepath.Clean(path), "/")
 	switch {
