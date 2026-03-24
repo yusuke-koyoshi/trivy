@@ -523,3 +523,13 @@ tool (
 	golang.org/x/tools/gopls/internal/analysis/modernize/cmd/modernize
 	sigs.k8s.io/kind
 )
+
+replace github.com/masahiro331/go-ext4-filesystem => github.com/yusuke-koyoshi/go-ext4-filesystem v0.0.0-20260324144713-76a61a290e37
+
+replace github.com/masahiro331/go-xfs-filesystem => github.com/yusuke-koyoshi/go-xfs-filesystem v0.0.0-20260324153543-902cfa8e360b
+
+replace github.com/masahiro331/go-vmdk-parser => github.com/yusuke-koyoshi/go-vmdk-parser v0.0.0-20260323161606-572d3a087e54
+
+replace github.com/masahiro331/go-disk => github.com/yusuke-koyoshi/go-disk v0.0.0-20260324051916-407c26bdbf72
+
+replace github.com/masahiro331/go-ebs-file => github.com/yusuke-koyoshi/go-ebs-file v0.0.0-20260324054152-8cf62d8c48b9
