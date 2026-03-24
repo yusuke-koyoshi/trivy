@@ -140,17 +140,6 @@ func (w *VM) fsWalk(fsys fs.FS, path string, d fs.DirEntry, err error) error {
 		return nil
 	case utils.SkipPath(pathName, w.skipFiles):
 		return nil
-	case fi.Mode()&0x1000 == 0x1000 ||
-		fi.Mode()&0x2000 == 0x2000 ||
-		fi.Mode()&0x6000 == 0x6000 ||
-		fi.Mode()&0xA000 == 0xA000 ||
-		fi.Mode()&0xc000 == 0xc000:
-		// 	0x1000:	S_IFIFO (FIFO)
-		// 	0x2000:	S_IFCHR (Character device)
-		// 	0x6000:	S_IFBLK (Block device)
-		// 	0xA000:	S_IFLNK (Symbolic link)
-		// 	0xC000:	S_IFSOCK (Socket)
-		return nil
 	}
 
 	cvf := newCachedVMFile(fsys, pathName)
