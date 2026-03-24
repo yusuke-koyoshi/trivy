@@ -202,19 +202,30 @@ func (cvf *cachedVMFile) Clean() error {
 }
 
 func (w *VM) detectLVM(sr io.SectionReader) (bool, error) {
-	buf := make([]byte, 512)
-	_, err := sr.ReadAt(buf, 512)
-	if err != nil {
-		return false, xerrors.Errorf("read header block error: %w", err)
-	}
-	_, err = sr.Seek(0, io.SeekStart)
-	if err != nil {
-		return false, xerrors.Errorf("seek error: %w", err)
+	defer sr.Seek(0, io.SeekStart)
+
+	var buf [8]byte
+	var lastErr error
+	var anyRead bool
+	// LVM2: "LABELONE" can appear in sectors 0-3 (LABEL_SCAN_SECTORS = 4)
+	for _, offset := range []int64{0, 512, 1024, 1536} {
+		if _, err := sr.ReadAt(buf[:], offset); err != nil {
+			lastErr = err
+			continue
+		}
+		anyRead = true
+		if string(buf[:]) == "LABELONE" {
+			return true, nil
+		}
+		// LVM1: "HM" at sector 0 only
+		if offset == 0 && string(buf[:2]) == "HM" {
+			return true, nil
+		}
 	}
 
-	// LABELONE is LVM signature
-	if string(buf[:8]) == "LABELONE" {
-		return true, nil
+	// If no sector was successfully read, return the last error
+	if !anyRead {
+		return false, xerrors.Errorf("read header block error: %w", lastErr)
 	}
 	return false, nil
 }
