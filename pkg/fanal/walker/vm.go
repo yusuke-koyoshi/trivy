@@ -5,7 +5,6 @@ import (
 	"io"
 	"io/fs"
 	"path/filepath"
-	"slices"
 	"strings"
 
 	"github.com/masahiro331/go-disk"
@@ -23,23 +22,9 @@ import (
 	xio "github.com/aquasecurity/trivy/pkg/x/io"
 )
 
-var requiredDiskName = []string{
-	"Linux",    // AmazonLinux image name
-	"p.lxroot", // SLES image name
-	"primary",  // Common image name
-	"0",        // Common image name
-	"1",        // Common image name
-	"2",        // Common image name
-	"3",        // Common image name
-}
-
 var checkFsFuncs = []diskFs.CheckFsFunc{
 	ext4.Check,
 	xfs.Check,
-}
-
-func AppendPermitDiskName(s ...string) {
-	requiredDiskName = append(requiredDiskName, s...)
 }
 
 type VM struct {
@@ -219,21 +204,25 @@ func (w *VM) detectLVM(sr io.SectionReader) (bool, error) {
 	return false, nil
 }
 
+// linuxSwapGUID is the GPT partition type GUID for Linux swap.
+// 0657FD6D-A4AB-43C4-84E5-0933C84B4F4F
+var linuxSwapGUID = gpt.GUID{
+	0x6D, 0xFD, 0x57, 0x06, 0xAB, 0xA4, 0xC4, 0x43,
+	0x84, 0xE5, 0x09, 0x33, 0xC8, 0x4B, 0x4F, 0x4F,
+}
+
 func shouldSkip(partition types.Partition) bool {
 	// skip empty partition
 	if bytes.Equal(partition.GetType(), []byte{0x00}) {
 		return true
 	}
 
-	if !slices.Contains(requiredDiskName, partition.Name()) {
-		return true
-	}
-
 	switch p := partition.(type) {
 	case *gpt.PartitionEntry:
-		return p.Bootable()
+		return p.Bootable() || p.PartitionTypeGUID == linuxSwapGUID
 	case *mbr.Partition:
-		return false
+		// 0x82: Linux swap, 0x05/0x0F: Extended partition (container, no filesystem)
+		return p.Type == 0x82 || p.Type == 0x05 || p.Type == 0x0F
 	}
 	return false
 }
