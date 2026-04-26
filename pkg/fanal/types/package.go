@@ -212,6 +212,15 @@ type Package struct {
 	Modularitylabel string     `json:",omitempty"` // only for Red Hat based distributions
 	BuildInfo       *BuildInfo `json:",omitempty"` // only for Red Hat
 
+	// Active indicates whether this kernel package corresponds to the
+	// currently running kernel of the scan target. Only set on kernel
+	// packages; non-kernel packages and packages on targets where the
+	// running kernel could not be determined remain nil.
+	//   - non-nil true:  package is the running kernel
+	//   - non-nil false: package is a kernel package but not the running one
+	//   - nil:           not applicable, or running kernel unknown
+	Active *bool `json:",omitempty"` // only for kernel packages
+
 	// Repository indicates where the package was distributed from.
 	Repository PackageRepository `json:",omitzero"`
 
