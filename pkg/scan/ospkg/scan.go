@@ -52,6 +52,15 @@ func (s *scanner) Scan(ctx context.Context, target types.ScanTarget, opts types.
 	}
 
 	sort.Sort(target.Packages)
+
+	// Label kernel packages with Active=true/false based on cross-matching
+	// the running kernel release. Mutates target.Packages elements in place
+	// so that the labels are visible both in the SBOM (result.Packages
+	// shares the same underlying slice) and to the vuln suppression step
+	// below. Scan() is invoked sequentially per target by the caller, so
+	// the in-place mutation is safe.
+	labelKernelPackages(target.Packages, target.OS.Family)
+
 	result.Packages = target.Packages
 
 	if !opts.Scanners.Enabled(types.VulnerabilityScanner) {
@@ -69,6 +78,13 @@ func (s *scanner) Scan(ctx context.Context, target types.ScanTarget, opts types.
 		// Return a result for those who want to override the error handling.
 		return result, false, xerrors.Errorf("failed vulnerability detection of OS packages: %w", err)
 	}
+
+	// Drop vulns belonging to inactive kernel packages so the report only
+	// surfaces issues that affect the kernel currently running. Active=nil
+	// packages (e.g. unknown running kernel, non-kernel packages) are
+	// always retained.
+	vulns = suppressInactiveKernelVulns(vulns, target.Packages)
+
 	result.Vulnerabilities = vulns
 
 	return result, eosl, nil
