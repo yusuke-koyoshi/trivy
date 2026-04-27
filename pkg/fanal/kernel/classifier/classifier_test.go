@@ -79,6 +79,55 @@ func TestClassify_Debian(t *testing.T) {
 			family: types.Ubuntu,
 			want:   Result{},
 		},
+		// Ubuntu HWE-style packaging: linux-<flavor>-<series>-<type>-<release>.
+		// The reconstructed release must match `uname -r` (i.e. release with
+		// the flavor appended) so cross-matching against the running kernel
+		// works for these packages too.
+		{
+			name:   "Ubuntu HWE oracle headers",
+			pkg:    types.Package{Name: "linux-oracle-6.17-headers-6.17.0-1010"},
+			family: types.Ubuntu,
+			want:   Result{IsKernel: true, Release: "6.17.0-1010-oracle"},
+		},
+		{
+			name:   "Ubuntu HWE oracle tools",
+			pkg:    types.Package{Name: "linux-oracle-6.17-tools-6.17.0-1011"},
+			family: types.Ubuntu,
+			want:   Result{IsKernel: true, Release: "6.17.0-1011-oracle"},
+		},
+		{
+			name:   "Ubuntu HWE aws modules",
+			pkg:    types.Package{Name: "linux-aws-5.15-modules-5.15.0-1052"},
+			family: types.Ubuntu,
+			want:   Result{IsKernel: true, Release: "5.15.0-1052-aws"},
+		},
+		{
+			name:   "Ubuntu HWE meta with no type-release rejected",
+			pkg:    types.Package{Name: "linux-oracle-6.17"},
+			family: types.Ubuntu,
+			want:   Result{},
+		},
+		{
+			name:   "Ubuntu HWE with non-digit release rejected",
+			pkg:    types.Package{Name: "linux-oracle-6.17-headers-something"},
+			family: types.Ubuntu,
+			want:   Result{},
+		},
+		// linux-libc-dev is intentionally not classified: it is a libc-side
+		// kernel header binary, not a kernel runtime package, and there is
+		// only ever one version installed system-wide.
+		{
+			name:   "linux-libc-dev not a kernel package",
+			pkg:    types.Package{Name: "linux-libc-dev"},
+			family: types.Ubuntu,
+			want:   Result{},
+		},
+		{
+			name:   "linux-base utility scripts not a kernel package",
+			pkg:    types.Package{Name: "linux-base"},
+			family: types.Ubuntu,
+			want:   Result{},
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
