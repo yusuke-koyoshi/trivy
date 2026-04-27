@@ -1,44 +1,60 @@
 package classifier
 
 import (
-	"strings"
+	"regexp"
 
 	"github.com/aquasecurity/trivy/pkg/fanal/types"
 )
 
-// debianKernelPrefixes lists known binary-package prefixes whose suffix is
-// the kernel release string when the package is a concrete kernel binary
-// (not a meta package). Order matters: longer prefixes must come first so
-// that strings.HasPrefix matches the most specific name. The set follows
-// the Debian/Ubuntu binary kernel package naming convention.
-var debianKernelPrefixes = []string{
-	"linux-image-unsigned-",
-	"linux-signed-image-",
-	"linux-modules-extra-",
-	"linux-cloud-tools-",
-	"linux-buildinfo-",
-	"linux-image-uc-",
-	"linux-image-",
-	"linux-headers-",
-	"linux-modules-",
-	"linux-tools-",
-	"linux-lib-rust-",
-}
+// debianKernelPackagePattern recognizes Debian/Ubuntu kernel binary
+// packages in two naming forms and reconstructs the `uname -r`-equivalent
+// release string.
+//
+//  1. Standard form: linux-<type>-<release>
+//     e.g. linux-image-5.15.0-92-generic   → release: 5.15.0-92-generic
+//
+//  2. HWE (Hardware Enablement) form: linux-<flavor>-<series>-<type>-<release>
+//     e.g. linux-oracle-6.17-headers-6.17.0-1010
+//     → flavor=oracle, series=6.17, type=headers, release=6.17.0-1010
+//     → reconstructed `uname -r` form: 6.17.0-1010-oracle
+//
+// The HWE form arose from Ubuntu's cloud kernel packaging where a flavor
+// (oracle/aws/gcp/...) and series (6.17 etc.) are nested between "linux-"
+// and the package type. Without recognizing this form, kernel CVEs that
+// Ubuntu Security Tracker attaches to these binaries (e.g.
+// `linux-oracle-6.17-headers-X.Y.Z-N`) are not subject to the inactive-
+// kernel suppression in pkg/scan/ospkg.
+//
+// The release segment must start with a digit. Names like
+// `linux-image-generic` (meta package) and `linux-libc-dev` (libc-side
+// kernel headers, not a kernel binary) are rejected because their suffix
+// is non-numeric. The type alternation lists longer variants first
+// (`modules-extra` before `modules`) so the leftmost-longest match picks
+// the correct package type.
+var debianKernelPackagePattern = regexp.MustCompile(
+	`^linux(?:-(?P<flavor>[a-z][a-z0-9]*)-(?P<series>\d+\.\d+))?-` +
+		`(?P<type>image-unsigned|signed-image|image-uc|image|` +
+		`modules-extra|modules|headers|cloud-tools|tools|buildinfo|lib-rust)` +
+		`-(?P<release>\d.+)$`,
+)
+
+var (
+	debianFlavorIndex  = debianKernelPackagePattern.SubexpIndex("flavor")
+	debianReleaseIndex = debianKernelPackagePattern.SubexpIndex("release")
+)
 
 func classifyDebian(pkg types.Package) Result {
-	for _, prefix := range debianKernelPrefixes {
-		if !strings.HasPrefix(pkg.Name, prefix) {
-			continue
-		}
-		rel := strings.TrimPrefix(pkg.Name, prefix)
-		// Concrete kernel binaries have a release suffix that begins with a
-		// digit (e.g. "5.15.0-92-generic"). Meta packages such as
-		// "linux-image-generic" or "linux-image-amd64" begin with a letter
-		// and must be excluded.
-		if rel == "" || rel[0] < '0' || rel[0] > '9' {
-			return Result{}
-		}
-		return Result{IsKernel: true, Release: rel}
+	m := debianKernelPackagePattern.FindStringSubmatch(pkg.Name)
+	if m == nil {
+		return Result{}
 	}
-	return Result{}
+	release := m[debianReleaseIndex]
+	flavor := m[debianFlavorIndex]
+	if flavor == "" {
+		// Standard form: release suffix already matches `uname -r`.
+		return Result{IsKernel: true, Release: release}
+	}
+	// HWE form: rebuild as <release>-<flavor> so the comparison key matches
+	// the value the kernel reports via `uname -r`.
+	return Result{IsKernel: true, Release: release + "-" + flavor}
 }
