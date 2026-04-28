@@ -42,6 +42,13 @@ func cachedRunning() (string, error) {
 // an extracted rootfs of a different host" — when the target rootfs has no
 // kernel package matching the host's `uname -r`, all kernels stay Active=nil.
 func labelKernelPackages(pkgs ftypes.Packages, family ftypes.OSType) {
+	if !hasKernelPackage(pkgs, family) {
+		// No kernel packages in target — nothing to label and no point in
+		// reading /proc. This skips the cachedRunning() call for container
+		// images that lack a kernel binary (the common case), partial rootfs
+		// scans without a package DB, and any artifact with zero OS packages.
+		return
+	}
 	running, err := cachedRunning()
 	if err != nil || running == "" {
 		// Non-Linux build, /proc unavailable, or empty osrelease. Cannot
@@ -51,6 +58,17 @@ func labelKernelPackages(pkgs ftypes.Packages, family ftypes.OSType) {
 		return
 	}
 	labelKernelPackagesWith(pkgs, family, running)
+}
+
+// hasKernelPackage reports whether pkgs contains at least one kernel package
+// recognized by the family-specific classifier.
+func hasKernelPackage(pkgs ftypes.Packages, family ftypes.OSType) bool {
+	for _, pkg := range pkgs {
+		if classifier.Classify(pkg, family).IsKernel {
+			return true
+		}
+	}
+	return false
 }
 
 // labelKernelPackagesWith is the testable core of labelKernelPackages.

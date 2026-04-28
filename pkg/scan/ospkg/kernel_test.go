@@ -97,6 +97,70 @@ func TestLabelKernelPackagesWith_KernelWithoutReleaseStaysNil(t *testing.T) {
 	}
 }
 
+// TestHasKernelPackage covers the early-return gate that prevents
+// labelKernelPackages from reading /proc when the target has no kernel
+// packages at all. This skips the cachedRunning() call for container image
+// scans that lack a kernel binary (the common case) and OS-package-empty
+// targets such as repository scans and partial rootfs without a package DB.
+func TestHasKernelPackage(t *testing.T) {
+	cases := []struct {
+		name   string
+		pkgs   ftypes.Packages
+		family ftypes.OSType
+		want   bool
+	}{
+		{
+			name: "linux-image present",
+			pkgs: ftypes.Packages{
+				{Name: "openssl"},
+				{Name: "linux-image-5.15.0-92-generic"},
+			},
+			family: ftypes.Ubuntu,
+			want:   true,
+		},
+		{
+			name: "kernel-uek present (oracle)",
+			pkgs: ftypes.Packages{
+				{Name: "kernel-uek", Version: "5.15.0", Release: "306.el8uek", Arch: "x86_64"},
+			},
+			family: ftypes.Oracle,
+			want:   true,
+		},
+		{
+			name: "no kernel packages (container image typical case)",
+			pkgs: ftypes.Packages{
+				{Name: "openssl"},
+				{Name: "bash"},
+				{Name: "libc6"},
+			},
+			family: ftypes.Ubuntu,
+			want:   false,
+		},
+		{
+			name:   "empty packages",
+			pkgs:   ftypes.Packages{},
+			family: ftypes.Ubuntu,
+			want:   false,
+		},
+		{
+			name: "Debian meta-package excluded as non-kernel",
+			pkgs: ftypes.Packages{
+				{Name: "linux-image-generic"},
+				{Name: "linux-libc-dev"},
+			},
+			family: ftypes.Ubuntu,
+			want:   false,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := hasKernelPackage(tc.pkgs, tc.family); got != tc.want {
+				t.Errorf("hasKernelPackage = %v; want %v", got, tc.want)
+			}
+		})
+	}
+}
+
 func TestSuppressInactiveKernelVulns_RealisticPkgIDFormat(t *testing.T) {
 	// Mirror the dpkg/rpm analyzer ID format ("Name@Version[-Release[.Arch]]")
 	// to lock in that suppression works end-to-end with real PkgIDs.
