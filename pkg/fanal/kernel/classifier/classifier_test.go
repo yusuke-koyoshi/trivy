@@ -128,6 +128,22 @@ func TestClassify_Debian(t *testing.T) {
 			family: types.Ubuntu,
 			want:   Result{},
 		},
+		// Cross-flavor base-release headers: the running kernel reports
+		// "<release>-<flavor>" but the base-release headers package carries
+		// no flavor (or the literal "-common" suffix), so the matcher must
+		// do a prefix comparison rather than equality.
+		{
+			name:   "Debian base-release headers (literal -common suffix)",
+			pkg:    types.Package{Name: "linux-headers-6.12.63+deb13-common"},
+			family: types.Debian,
+			want:   Result{IsKernel: true, Release: "6.12.63+deb13", BaseRelease: true},
+		},
+		{
+			name:   "Ubuntu base-release headers (no flavor suffix)",
+			pkg:    types.Package{Name: "linux-headers-5.15.0-92"},
+			family: types.Ubuntu,
+			want:   Result{IsKernel: true, Release: "5.15.0-92", BaseRelease: true},
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

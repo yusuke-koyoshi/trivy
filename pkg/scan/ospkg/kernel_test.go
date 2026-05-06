@@ -32,6 +32,56 @@ func TestLabelKernelPackagesWith_DebianMatchAndMismatch(t *testing.T) {
 	}
 }
 
+// TestLabelKernelPackagesWith_DebianCommonHeaders covers the cross-flavor
+// "common" headers convention. The running kernel reports a flavor-suffixed
+// release such as "6.12.63+deb13-cloud-amd64", while the shared headers
+// package is named "linux-headers-6.12.63+deb13-common" with no flavor.
+// Without prefix matching the common package would be demoted to
+// Active=false even though it belongs to the running kernel.
+func TestLabelKernelPackagesWith_DebianCommonHeaders(t *testing.T) {
+	pkgs := ftypes.Packages{
+		{ID: "linux-image-running", Name: "linux-image-6.12.63+deb13-cloud-amd64"},
+		{ID: "linux-headers-running", Name: "linux-headers-6.12.63+deb13-cloud-amd64"},
+		{ID: "linux-headers-common-running", Name: "linux-headers-6.12.63+deb13-common"},
+		{ID: "linux-headers-common-other", Name: "linux-headers-6.12.73+deb13-common"},
+	}
+	labelKernelPackagesWith(pkgs, ftypes.Debian, "6.12.63+deb13-cloud-amd64")
+
+	if pkgs[0].Active == nil || !*pkgs[0].Active {
+		t.Errorf("flavor-bound running image: want Active=true; got %v", pkgs[0].Active)
+	}
+	if pkgs[1].Active == nil || !*pkgs[1].Active {
+		t.Errorf("flavor-bound running headers: want Active=true; got %v", pkgs[1].Active)
+	}
+	if pkgs[2].Active == nil || !*pkgs[2].Active {
+		t.Errorf("common headers matching running version: want Active=true; got %v", pkgs[2].Active)
+	}
+	if pkgs[3].Active == nil || *pkgs[3].Active {
+		t.Errorf("common headers for unrelated version: want Active=false; got %v", pkgs[3].Active)
+	}
+}
+
+// TestLabelKernelPackagesWith_UbuntuVersionOnlyHeaders mirrors the Debian
+// case for Ubuntu's "no flavor suffix" headers package convention.
+func TestLabelKernelPackagesWith_UbuntuVersionOnlyHeaders(t *testing.T) {
+	pkgs := ftypes.Packages{
+		{ID: "linux-image-running", Name: "linux-image-5.15.0-92-generic"},
+		{ID: "linux-headers-version-running", Name: "linux-headers-5.15.0-92"},
+		{ID: "linux-headers-version-other", Name: "linux-headers-5.15.0-89"},
+	}
+	labelKernelPackagesWith(pkgs, ftypes.Ubuntu, "5.15.0-92-generic")
+
+	if pkgs[0].Active == nil || !*pkgs[0].Active {
+		t.Errorf("flavor-bound running image: want Active=true; got %v", pkgs[0].Active)
+	}
+	if pkgs[1].Active == nil || !*pkgs[1].Active {
+		t.Errorf("version-only headers matching running: want Active=true; got %v", pkgs[1].Active)
+	}
+	if pkgs[2].Active == nil || *pkgs[2].Active {
+		t.Errorf("version-only headers for older kernel: want Active=false; got %v", pkgs[2].Active)
+	}
+}
+
 func TestLabelKernelPackagesWith_NoMatchFallback(t *testing.T) {
 	// A Debian rootfs scanned from a host whose uname -r differs.
 	pkgs := ftypes.Packages{

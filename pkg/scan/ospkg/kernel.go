@@ -128,7 +128,7 @@ func labelKernelPackagesWith(pkgs ftypes.Packages, family ftypes.OSType, running
 			idx: i,
 			key: identityKey{pkg.Name, pkg.Version, pkg.Release, pkg.Arch},
 		}
-		if r.Release == running {
+		if r.Matches(running) {
 			e.matches = true
 			anyMatch = true
 			if cur, ok := maxEpochByID[e.key]; !ok || pkg.Epoch > cur {
