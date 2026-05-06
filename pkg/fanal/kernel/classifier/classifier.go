@@ -12,6 +12,8 @@
 package classifier
 
 import (
+	"strings"
+
 	"github.com/aquasecurity/trivy/pkg/fanal/types"
 )
 
@@ -21,10 +23,36 @@ type Result struct {
 	// recognized by the family-specific rules.
 	IsKernel bool
 
-	// Release is the kernel release string usable for cross-matching with
-	// `uname -r`. Empty when IsKernel is false, or when the package metadata
-	// is insufficient to construct a release string.
+	// Release identifies the kernel this package belongs to, comparable
+	// against `uname -r`. Empty when IsKernel is false, or when the package
+	// metadata is insufficient to construct a release string.
+	//
+	// - For flavor-bound packages (e.g. linux-image-X-cloud-amd64) Release
+	//   is the full uname -r equivalent and the matcher uses equality.
+	// - For flavor-independent packages (Debian linux-headers-X-common,
+	//   Ubuntu version-only linux-headers-X.Y.Z-N) Release omits the
+	//   trailing `-<flavor>` segment; BaseRelease=true tells the matcher to
+	//   accept any running kernel that begins with `<Release>-`.
 	Release string
+
+	// BaseRelease indicates Release is the kernel version base without a
+	// flavor suffix. The matcher switches from equality to prefix match
+	// when this is true; see Matches.
+	BaseRelease bool
+}
+
+// Matches reports whether the given running kernel release belongs to this
+// classified package. Flavor-bound packages match by exact equality;
+// base-release packages (BaseRelease=true) match when running begins with
+// `<Release>-`.
+func (r Result) Matches(running string) bool {
+	if !r.IsKernel || r.Release == "" {
+		return false
+	}
+	if r.BaseRelease {
+		return strings.HasPrefix(running, r.Release+"-")
+	}
+	return r.Release == running
 }
 
 // Classify decides whether the given package is a kernel package for the

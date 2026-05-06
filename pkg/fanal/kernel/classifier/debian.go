@@ -2,6 +2,8 @@ package classifier
 
 import (
 	"regexp"
+	"strconv"
+	"strings"
 
 	"github.com/aquasecurity/trivy/pkg/fanal/types"
 )
@@ -51,7 +53,25 @@ func classifyDebian(pkg types.Package) Result {
 	release := m[debianReleaseIndex]
 	flavor := m[debianFlavorIndex]
 	if flavor == "" {
-		// Standard form: release suffix already matches `uname -r`.
+		// Debian shared-headers convention: literal "-common" trailer marks
+		// the cross-flavor package. Strip it so the prefix match against
+		// running (e.g. "6.12.63+deb13-cloud-amd64") succeeds.
+		if strings.HasSuffix(release, "-common") {
+			return Result{
+				IsKernel:    true,
+				Release:     strings.TrimSuffix(release, "-common"),
+				BaseRelease: true,
+			}
+		}
+		// Ubuntu shared-headers convention: no flavor suffix, release ends
+		// with the build number (e.g. "5.15.0-92"). The running kernel
+		// always has a trailing `-<flavor>` so this is also a prefix match.
+		if i := strings.LastIndex(release, "-"); i >= 0 {
+			if _, err := strconv.Atoi(release[i+1:]); err == nil {
+				return Result{IsKernel: true, Release: release, BaseRelease: true}
+			}
+		}
+		// Standard flavor-bound form: release suffix already matches `uname -r`.
 		return Result{IsKernel: true, Release: release}
 	}
 	// HWE form: rebuild as <release>-<flavor> so the comparison key matches
