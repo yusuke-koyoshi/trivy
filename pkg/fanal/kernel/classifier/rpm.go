@@ -1,8 +1,6 @@
 package classifier
 
 import (
-	"fmt"
-
 	"github.com/aquasecurity/trivy/pkg/fanal/types"
 	"github.com/aquasecurity/trivy/pkg/set"
 )
@@ -141,6 +139,6 @@ func classifyRPM(pkg types.Package) Result {
 	}
 	return Result{
 		IsKernel: true,
-		Release:  fmt.Sprintf("%s-%s.%s", pkg.Version, pkg.Release, pkg.Arch),
+		Release:  pkg.Version + "-" + pkg.Release + "." + pkg.Arch,
 	}
 }
