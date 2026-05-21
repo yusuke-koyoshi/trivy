@@ -46,6 +46,12 @@ var (
 )
 
 func classifyDebian(pkg types.Package) Result {
+	// Cheap prefix gate to skip the regex engine for the vast majority of
+	// dpkg packages whose names cannot match (e.g. libc6, bash, python3-*).
+	// Aligns with the prefix-gate pattern in classifyAlpine / classifySUSE.
+	if !strings.HasPrefix(pkg.Name, "linux-") {
+		return Result{}
+	}
 	m := debianKernelPackagePattern.FindStringSubmatch(pkg.Name)
 	if m == nil {
 		return Result{}
