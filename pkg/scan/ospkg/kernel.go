@@ -14,24 +14,12 @@ import (
 	"github.com/aquasecurity/trivy/pkg/types"
 )
 
-// runningKernelCache holds the host's `uname -r` value for the lifetime of
-// the trivy process. It is invariant per-process: a long-running scan such
-// as `trivy k8s` calls Scan() once per target but the host kernel never
-// changes underneath us, so reading /proc/sys/kernel/osrelease repeatedly
-// is wasted I/O. Errors (non-Linux, /proc unavailable) are also cached so
+// cachedRunning holds the host's `uname -r` value for the lifetime of
+// the trivy process. The host kernel does not change mid-process, so a
+// long-running scan such as `trivy k8s` reads /proc/sys/kernel/osrelease
+// at most once. Errors (non-Linux, /proc unavailable) are also cached so
 // the warning path stays cheap.
-var runningKernelCache struct {
-	once  sync.Once
-	value string
-	err   error
-}
-
-func cachedRunning() (string, error) {
-	runningKernelCache.once.Do(func() {
-		runningKernelCache.value, runningKernelCache.err = kernel.Running()
-	})
-	return runningKernelCache.value, runningKernelCache.err
-}
+var cachedRunning = sync.OnceValues(kernel.Running)
 
 // labelKernelPackages reads the running kernel release of the host and
 // labels matching packages with Active=true / Active=false in place. See
