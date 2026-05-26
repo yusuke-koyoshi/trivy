@@ -154,6 +154,10 @@ func (a *Storage) Analyze(ctx context.Context, r *io.SectionReader) (types.BlobI
 		Licenses:        result.Licenses,
 		CustomResources: result.CustomResources,
 
+		// Populated by the kernel detection analyzers (banner / journal /
+		// wtmp / GRUB) reading inside the VM filesystem.
+		RunningKernelRelease: result.RunningKernelRelease,
+
 		// For Red Hat
 		BuildInfo: result.BuildInfo,
 	}
