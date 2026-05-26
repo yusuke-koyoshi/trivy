@@ -49,13 +49,13 @@ func (s *scanner) Scan(ctx context.Context, target types.ScanTarget, opts types.
 
 	sort.Sort(target.Packages)
 
-	// Label kernel packages with Active=true/false based on cross-matching
-	// the running kernel release. Mutates target.Packages elements in place
-	// so that the labels are visible both in the SBOM (result.Packages
-	// shares the same underlying slice) and to the vuln suppression step
-	// below. Scan() is invoked sequentially per target by the caller, so
-	// the in-place mutation is safe.
-	labelKernelPackages(target.Packages, target.OS.Family)
+	// In-place mutation of target.Packages is visible both in the SBOM
+	// (result.Packages shares the slice) and to the vuln suppression
+	// step below.
+	if running := target.RunningKernelRelease; running != "" {
+		log.Info("Detected running kernel", log.String("release", running))
+		labelKernelPackagesWith(target.Packages, target.OS.Family, running)
+	}
 
 	result.Packages = target.Packages
 

@@ -23,6 +23,7 @@ import (
 	"github.com/aquasecurity/trivy/pkg/extension"
 	"github.com/aquasecurity/trivy/pkg/fanal/analyzer"
 	"github.com/aquasecurity/trivy/pkg/fanal/artifact"
+	"github.com/aquasecurity/trivy/pkg/fanal/kernel"
 	ftypes "github.com/aquasecurity/trivy/pkg/fanal/types"
 	"github.com/aquasecurity/trivy/pkg/fanal/walker"
 	"github.com/aquasecurity/trivy/pkg/flag"
@@ -101,6 +102,12 @@ type runner struct {
 	initializeScanService InitializeScanService
 	versionChecker        *notification.VersionChecker
 	dbOpen                bool
+
+	// runningKernelRelease is set by ScanRootfs from the scanner host's
+	// uname -r and copied onto ArtifactOption.RunningKernelRelease in
+	// initScannerConfig. Other ScanX entry points leave it empty so the
+	// scanner kernel is never used as a stand-in for an offline target.
+	runningKernelRelease string
 
 	// WASM modules
 	module *module.Manager
@@ -230,6 +237,17 @@ func (r *runner) ScanFilesystem(ctx context.Context, opts flag.Options) (types.R
 func (r *runner) ScanRootfs(ctx context.Context, opts flag.Options) (types.Report, error) {
 	// Disable the lock file scanning
 	opts.DisabledAnalyzers = append(opts.DisabledAnalyzers, analyzer.TypeLockfiles...)
+
+	// `trivy rootfs` plumbs the scanner host's `uname -r` into the
+	// artifact pipeline. When target == "/" the value is authoritative;
+	// for `trivy rootfs /mnt/extracted` the scanner kernel may not match
+	// the target rootfs, but the labeler's cross-match in
+	// labelKernelPackagesWith leaves all kernel packages at Active=nil
+	// when no installed kernel matches, which neutralizes the mismatch
+	// in the common case. Other ScanX entry points leave the field empty.
+	if release, err := kernel.Running(); err == nil {
+		r.runningKernelRelease = release
+	}
 
 	return r.scanFS(ctx, opts)
 }
@@ -637,22 +655,23 @@ func (r *runner) initScannerConfig(ctx context.Context, opts flag.Options) (Scan
 		RemoteCacheOptions: opts.RemoteCacheOpts(),
 		ServerOption:       opts.ClientScannerOpts(),
 		ArtifactOption: artifact.Option{
-			DisabledAnalyzers: disabledAnalyzers(opts),
-			DisabledHandlers:  disabledHandlers,
-			FilePatterns:      opts.FilePatterns,
-			Parallel:          opts.Parallel,
-			Offline:           opts.OfflineScan,
-			NoProgress:        opts.NoProgress || opts.Quiet,
-			Insecure:          opts.Insecure,
-			RepoBranch:        opts.RepoBranch,
-			RepoCommit:        opts.RepoCommit,
-			RepoTag:           opts.RepoTag,
-			SBOMSources:       opts.SBOMSources,
-			RekorURL:          opts.RekorURL,
-			AWSRegion:         opts.Region,
-			AWSEndpoint:       opts.Endpoint,
-			FileChecksum:      fileChecksum,
-			DetectionPriority: opts.DetectionPriority,
+			DisabledAnalyzers:    disabledAnalyzers(opts),
+			DisabledHandlers:     disabledHandlers,
+			FilePatterns:         opts.FilePatterns,
+			Parallel:             opts.Parallel,
+			Offline:              opts.OfflineScan,
+			NoProgress:           opts.NoProgress || opts.Quiet,
+			Insecure:             opts.Insecure,
+			RepoBranch:           opts.RepoBranch,
+			RepoCommit:           opts.RepoCommit,
+			RepoTag:              opts.RepoTag,
+			SBOMSources:          opts.SBOMSources,
+			RekorURL:             opts.RekorURL,
+			AWSRegion:            opts.Region,
+			AWSEndpoint:          opts.Endpoint,
+			FileChecksum:         fileChecksum,
+			DetectionPriority:    opts.DetectionPriority,
+			RunningKernelRelease: r.runningKernelRelease,
 
 			// For image scanning
 			ImageOption: ftypes.ImageOptions{
