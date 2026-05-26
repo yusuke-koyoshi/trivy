@@ -38,6 +38,30 @@ var (
 	ErrNoPkgsDetected = xerrors.New("no packages detected")
 )
 
+// runningKernelReleaseSourcePriority orders the kernel detection analyzers
+// by trustworthiness:
+//
+//   - wtmp records uname(2) output verbatim from systemd-update-utmp into
+//     a small fixed-record file, so the latest BOOT_TIME entry is the
+//     most authoritative offline source.
+//   - journald disk-writes are more synchronous than rsyslog text logs,
+//     but the active system.journal can rotate the boot banner out of
+//     view on long-running hosts.
+//   - banner text logs depend on rsyslog flush timing.
+//   - GRUB saved_entry reflects next-boot intent, not the running kernel,
+//     and is only safe as a last resort.
+//
+// Any new kernel detection analyzer that writes RunningKernelRelease MUST
+// be registered here. An unregistered Type evaluates to priority 0, which
+// causes its result to be silently outranked by every registered source —
+// a deliberately conservative default.
+var runningKernelReleaseSourcePriority = map[Type]int{
+	TypeKernelWtmp:    4,
+	TypeKernelJournal: 3,
+	TypeKernelBanner:  2,
+	TypeKernelGRUB:    1,
+}
+
 //////////////////////
 // Analyzer options //
 //////////////////////
@@ -192,6 +216,20 @@ type AnalysisResult struct {
 	// For Red Hat
 	BuildInfo *ftypes.BuildInfo
 
+	// RunningKernelRelease is the `uname -r` of the kernel running when
+	// the artifact was captured. See runningKernelReleaseSourcePriority
+	// for the source list and conflict-resolution order. pkg/scan/ospkg
+	// cross-matches this against installed kernel packages to mark vulns
+	// of non-running kernels inactive.
+	RunningKernelRelease string
+
+	// runningKernelReleaseSource records which analyzer produced
+	// RunningKernelRelease, so concurrent merges from multiple kernel
+	// detection analyzers resolve deterministically by source priority
+	// instead of by goroutine race. Internal-only; not propagated to
+	// types.ArtifactInfo.
+	runningKernelReleaseSource Type
+
 	// CustomResources hold analysis results from custom analyzers.
 	// It is for extensibility and not used in OSS.
 	CustomResources []ftypes.CustomResource
@@ -205,7 +243,8 @@ func NewAnalysisResult() *AnalysisResult {
 func (r *AnalysisResult) isEmpty() bool {
 	return lo.IsEmpty(r.OS) && r.Repository == nil && len(r.PackageInfos) == 0 && len(r.Applications) == 0 &&
 		len(r.Misconfigurations) == 0 && len(r.Secrets) == 0 && len(r.Licenses) == 0 && len(r.SystemInstalledFiles) == 0 &&
-		r.BuildInfo == nil && len(r.Digests) == 0 && len(r.CustomResources) == 0
+		r.BuildInfo == nil && len(r.Digests) == 0 && len(r.CustomResources) == 0 &&
+		r.RunningKernelRelease == ""
 }
 
 func (r *AnalysisResult) Sort() {
@@ -320,6 +359,13 @@ func (r *AnalysisResult) Merge(newResult *AnalysisResult) {
 	}
 
 	r.CustomResources = append(r.CustomResources, newResult.CustomResources...)
+
+	if newResult.RunningKernelRelease != "" &&
+		runningKernelReleaseSourcePriority[newResult.runningKernelReleaseSource] >
+			runningKernelReleaseSourcePriority[r.runningKernelReleaseSource] {
+		r.RunningKernelRelease = newResult.RunningKernelRelease
+		r.runningKernelReleaseSource = newResult.runningKernelReleaseSource
+	}
 }
 
 // setAnalyzedBy sets the AnalyzedBy field for all packages in the result.
@@ -336,6 +382,9 @@ func (r *AnalysisResult) setAnalyzedBy(analyzerType Type) {
 		for j := range r.Applications[i].Packages {
 			r.Applications[i].Packages[j].AnalyzedBy = analyzerType
 		}
+	}
+	if r.RunningKernelRelease != "" {
+		r.runningKernelReleaseSource = analyzerType
 	}
 }
 
