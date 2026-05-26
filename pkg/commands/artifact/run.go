@@ -207,6 +207,10 @@ func (r *runner) ScanImage(ctx context.Context, opts flag.Options) (types.Report
 	// Disable the lock file scanning
 	opts.DisabledAnalyzers = analyzer.TypeLockfiles
 
+	// Container images share the host kernel; they have no running
+	// kernel of their own. Skip the kernel detection analyzers.
+	opts.DisabledAnalyzers = append(opts.DisabledAnalyzers, analyzer.KernelDetectorTypes...)
+
 	var s InitializeScanService
 	switch {
 	case opts.Input != "" && opts.ServerAddr == "":
@@ -231,6 +235,10 @@ func (r *runner) ScanFilesystem(ctx context.Context, opts flag.Options) (types.R
 	opts.DisabledAnalyzers = append(opts.DisabledAnalyzers, analyzer.TypeIndividualPkgs...)
 	opts.DisabledAnalyzers = append(opts.DisabledAnalyzers, analyzer.TypeSBOM)
 
+	// `trivy fs` targets project sources / arbitrary directories, not a
+	// kernel-bearing system. Skip the kernel detection analyzers.
+	opts.DisabledAnalyzers = append(opts.DisabledAnalyzers, analyzer.KernelDetectorTypes...)
+
 	return r.scanFS(ctx, opts)
 }
 
@@ -239,12 +247,15 @@ func (r *runner) ScanRootfs(ctx context.Context, opts flag.Options) (types.Repor
 	opts.DisabledAnalyzers = append(opts.DisabledAnalyzers, analyzer.TypeLockfiles...)
 
 	// `trivy rootfs` plumbs the scanner host's `uname -r` into the
-	// artifact pipeline. When target == "/" the value is authoritative;
-	// for `trivy rootfs /mnt/extracted` the scanner kernel may not match
-	// the target rootfs, but the labeler's cross-match in
-	// labelKernelPackagesWith leaves all kernel packages at Active=nil
-	// when no installed kernel matches, which neutralizes the mismatch
-	// in the common case. Other ScanX entry points leave the field empty.
+	// artifact pipeline as the sole running-kernel source: when target
+	// == "/" the value is authoritative; for `trivy rootfs /mnt/extracted`
+	// the scanner kernel may not match the target rootfs, but the
+	// labeler's cross-match in labelKernelPackagesWith leaves all kernel
+	// packages at Active=nil when no installed kernel matches, which
+	// neutralizes the mismatch in the common case. The artifact-internal
+	// file parsers are disabled so they don't race the authoritative
+	// syscall result. Other ScanX entry points leave the field empty.
+	opts.DisabledAnalyzers = append(opts.DisabledAnalyzers, analyzer.KernelDetectorTypes...)
 	if release, err := kernel.Running(); err == nil {
 		r.runningKernelRelease = release
 	}
