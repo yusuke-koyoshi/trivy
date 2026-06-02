@@ -1,40 +1,29 @@
-// Package wtmp extracts the running kernel release from /var/log/wtmp,
-// the binary boot/login record file written by systemd-update-utmp on
-// modern Linux distributions.
+// Package wtmp extracts the running kernel release from /var/log/wtmp, the
+// binary boot/login record file written by systemd-update-utmp.
 //
-// The kernel release is the highest-confidence offline source available
-// because:
-//
-//   - systemd-update-utmp writes uname(2) output verbatim into the
-//     ut_host[256] field of each BOOT_TIME record, so the value is
-//     authoritative ("the kernel writes its own release").
-//   - The active /var/log/wtmp is a small file (typically a few hundred
-//     KB) regardless of host uptime, unlike journals which can be tens
-//     to hundreds of MB and rotate the boot banner out of view.
-//   - The LAST BOOT_TIME record is, by definition, the boot that the
-//     currently-running kernel performed.
+// This is the highest-confidence offline source: systemd-update-utmp writes
+// uname(2) output verbatim into the ut_host[256] field of each BOOT_TIME
+// record (the kernel writes its own release), and the LAST BOOT_TIME record is
+// by definition the boot the running kernel performed. wtmp is normally small
+// (hundreds of KB; tens of MB on busy hosts), and Parse streams it in constant
+// memory and reads it in full, so the latest boot is always reached.
 //
 // Limitations:
 //
-//   - Some minimal images (scratch / distroless containers, Bottlerocket,
-//     Talos) ship without /var/log/wtmp; the caller falls back to banner
-//     / journal / GRUB sources.
-//   - Long uptimes plus aggressive logrotate can rotate the active
-//     wtmp before the next reboot, leaving the running boot record only
-//     in /var/log/wtmp.1; only the active file is consulted here.
-//   - The integer fields in struct utmpx are written in the host's
-//     native byte order. We decode ut_type as little-endian, which
-//     matches every architecture in trivy's mainstream support
-//     (x86_64, aarch64, ppc64le). Files written by big-endian hosts
-//     (s390x, ppc64 BE) will fail the ut_type==BOOT_TIME check on
-//     every record and the parser falls through to a lower-priority
-//     source. Auto-detection was considered and skipped: the BE
-//     deployments overlap negligibly with trivy's user base and the
-//     fallback behavior is graceful.
+//   - Some minimal images (scratch/distroless, Bottlerocket, Talos) lack
+//     /var/log/wtmp; the caller falls back to banner / journal / GRUB.
+//   - Aggressive logrotate can rotate the active wtmp before the next reboot,
+//     leaving the running boot record only in /var/log/wtmp.1; only the active
+//     file is consulted.
+//   - struct utmpx integer fields are host native-endian. We decode ut_type as
+//     little-endian, matching trivy's mainstream arches (x86_64, aarch64,
+//     ppc64le). Big-endian hosts (s390x, ppc64 BE) fail the ut_type==BOOT_TIME
+//     check on every record and fall through to a lower-priority source.
+//     Auto-detection was skipped: BE deployments overlap negligibly with
+//     trivy's users and the fallback is graceful.
 //
-// Format reference: glibc <utmpx.h>. Linux pads the legacy utmp struct
-// to match utmpx so the two are byte-compatible. We parse the modern
-// utmpx layout used since glibc 2.x.
+// Format reference: glibc <utmpx.h>. Linux pads legacy utmp to match utmpx, so
+// they are byte-compatible; we parse the modern utmpx layout (glibc 2.x+).
 package wtmp
 
 import (
@@ -43,13 +32,13 @@ import (
 	"io"
 )
 
-// recordSizes are the candidate on-disk sizes of a Linux struct utmpx
-// record across architectures and glibc versions:
+// recordSizes are the candidate on-disk sizes of a struct utmpx record across
+// arches and glibc versions:
 //
-//   - 384 bytes: classic glibc layout with 32-bit timeval (most x86_64
-//     and historically all Linux installs).
-//   - 400 bytes: glibc 2.34+ on architectures where the timeval inside
-//     ut_tv was widened to 64 bits (observed on aarch64 Ubuntu 24.04+).
+//   - 384 bytes: classic glibc layout, 32-bit timeval (most x86_64, and
+//     historically all Linux).
+//   - 400 bytes: glibc 2.34+ where ut_tv's timeval widened to 64-bit
+//     (observed on aarch64 Ubuntu 24.04+).
 //
 // Parse picks the size that produces sensible BOOT_TIME records.
 var recordSizes = []int{400, 384}
@@ -75,58 +64,49 @@ const (
 	lenHost = 256
 )
 
-// bootUser is the conventional ut_user value systemd-update-utmp (and
-// older sysv-init / upstart equivalents) write into BOOT_TIME records.
-// Verifying this guards the dual-size scan against false positives:
-// without the check, a misaligned 400-byte read across a 384-byte file
-// can pick up a stray 0x0002 in random padding bytes, mistake it for
-// ut_type=BOOT_TIME, and return arbitrary bytes from offset 76 as if
-// they were ut_host.
+// bootUser is the ut_user value systemd-update-utmp (and older sysv-init /
+// upstart) write into BOOT_TIME records. Verifying it guards the dual-size
+// scan: without the check, a misaligned 400-byte read over a 384-byte file can
+// hit a stray 0x0002 in padding, mistake it for ut_type=BOOT_TIME, and return
+// arbitrary offset-76 bytes as ut_host.
 var bootUser = []byte("reboot")
 
-// chunkSize is the streaming read window. 64 KB is large enough to
-// hold many records per syscall without committing the parser to a
-// large heap allocation up front.
+// chunkSize is the streaming read window. 64 KB holds many records per syscall
+// without a large up-front heap allocation.
 const chunkSize = 64 << 10
 
-// maxFileSize bounds how much of wtmp the parser will buffer. Standard
-// logrotate keeps the active wtmp under a few MB, so 50 MB is a
-// generous defense-in-depth cap; a larger file is treated as if it
-// ended at this offset and any trailing records (likely the most
-// recent BOOT_TIME) are dropped rather than risk OOM on a malformed
-// or unrotated host. Variable rather than const so tests can shrink it.
-var maxFileSize = 50 << 20
-
-// Parse reads wtmp records sequentially from the start of the file and
-// returns the kernel release recorded in the LAST BOOT_TIME entry, or
-// "" if none is found.
+// Parse reads wtmp records sequentially from the file start and returns the
+// kernel release in the LAST BOOT_TIME entry, or "" if none is found.
 //
-// Records are aligned to the file start; trailing bytes that don't
-// complete a full record are ignored (some kernels / userspace tools
-// leave a partial tail when wtmp is truncated by logrotate).
+// Records are aligned to the file start; a trailing partial record is ignored
+// (logrotate truncation can leave one).
 //
-// Architectures differ in struct size (see recordSizes). When the file
-// length divides evenly by exactly one candidate size that size is the
-// only one that produces correctly aligned records, so we try it first;
-// otherwise we try every candidate and rely on each scan's ut_user
-// "reboot" sanity check to reject misaligned false positives.
+// Arches differ in struct size (see recordSizes). When the file length divides
+// evenly by exactly one candidate, that size is the only correctly-aligned one
+// and is tried first; otherwise we try every candidate and rely on the ut_user
+// "reboot" check to reject misaligned false positives.
 //
-// Reads are chunked (chunkSize bytes per syscall) and capped at
-// maxFileSize so a pathologically large or unrotated wtmp cannot
-// exhaust memory.
+// The file is streamed in constant memory: a scanner per candidate buffers at
+// most one record and keeps only the latest BOOT_TIME release. wtmp is read in
+// full — the newest boot is at the tail and must not be dropped — without OOM
+// risk on a pathologically large or crafted file. (The newest boot is the
+// running kernel, and this is the highest-priority source, so a stale early
+// record would wrongly outrank the correct journal/banner result.)
 func Parse(r io.Reader) string {
-	var data []byte
+	scanners := make(map[int]*recordScanner, len(recordSizes))
+	for _, sz := range recordSizes {
+		scanners[sz] = newRecordScanner(sz)
+	}
+
+	var length int
 	chunk := make([]byte, chunkSize)
 	for {
 		n, err := r.Read(chunk)
 		if n > 0 {
-			if room := maxFileSize - len(data); n > room {
-				n = room
+			length += n
+			for _, s := range scanners {
+				s.write(chunk[:n])
 			}
-			data = append(data, chunk[:n]...)
-		}
-		if len(data) >= maxFileSize {
-			break
 		}
 		if err == io.EOF {
 			break
@@ -135,9 +115,10 @@ func Parse(r io.Reader) string {
 			return ""
 		}
 	}
-	for _, sz := range orderBySizeFit(len(data)) {
-		if release := scanRecords(data, sz); release != "" {
-			return release
+
+	for _, sz := range orderBySizeFit(length) {
+		if rel := scanners[sz].lastRelease; rel != "" {
+			return rel
 		}
 	}
 	return ""
@@ -161,29 +142,59 @@ func orderBySizeFit(length int) []int {
 	return out
 }
 
-// scanRecords iterates fixed-size records starting at offset 0 and
-// returns the kernel release from the LAST BOOT_TIME record whose
-// ut_user starts with "reboot" and whose ut_host is non-empty. Returns
-// "" if no such record is found.
-func scanRecords(data []byte, sz int) string {
-	var release string
-	for off := 0; off+sz <= len(data); off += sz {
-		rec := data[off : off+sz]
-		if int16(binary.LittleEndian.Uint16(rec[offType:])) != bootTime {
+// recordScanner reassembles fixed-size utmpx records (aligned to the file
+// start) from a byte stream and remembers the kernel release of the most
+// recent valid BOOT_TIME record. It holds at most one record (sz bytes), so
+// memory stays flat regardless of file size — letting Parse read wtmp in full
+// and still see the boot at the tail without a size cap.
+type recordScanner struct {
+	sz          int
+	buf         []byte
+	lastRelease string
+}
+
+func newRecordScanner(sz int) *recordScanner {
+	return &recordScanner{sz: sz, buf: make([]byte, 0, sz)}
+}
+
+// write feeds stream bytes in, evaluating each record once its sz bytes arrive
+// then dropping it. Trailing bytes that never complete a record stay in buf
+// and are ignored.
+func (s *recordScanner) write(p []byte) {
+	for len(p) > 0 {
+		// Fast path: evaluate a whole record in place when buf is empty, no copy.
+		if len(s.buf) == 0 && len(p) >= s.sz {
+			s.eval(p[:s.sz])
+			p = p[s.sz:]
 			continue
 		}
-		if !bytes.HasPrefix(rec[offUser:offUser+lenUser], bootUser) {
-			continue
-		}
-		host := rec[offHost : offHost+lenHost]
-		if i := bytes.IndexByte(host, 0); i >= 0 {
-			host = host[:i]
-		}
-		if h := string(bytes.TrimSpace(host)); h != "" {
-			release = h
+		take := min(s.sz-len(s.buf), len(p))
+		s.buf = append(s.buf, p[:take]...)
+		p = p[take:]
+		if len(s.buf) == s.sz {
+			s.eval(s.buf)
+			s.buf = s.buf[:0]
 		}
 	}
-	return release
+}
+
+// eval updates lastRelease when rec is a genuine BOOT_TIME entry:
+// ut_type==BOOT_TIME, ut_user starts with "reboot" (guards against misaligned
+// false positives), and ut_host is non-empty.
+func (s *recordScanner) eval(rec []byte) {
+	if int16(binary.LittleEndian.Uint16(rec[offType:])) != bootTime {
+		return
+	}
+	if !bytes.HasPrefix(rec[offUser:offUser+lenUser], bootUser) {
+		return
+	}
+	host := rec[offHost : offHost+lenHost]
+	if i := bytes.IndexByte(host, 0); i >= 0 {
+		host = host[:i]
+	}
+	if h := string(bytes.TrimSpace(host)); h != "" {
+		s.lastRelease = h
+	}
 }
 
 // Path is the canonical location of the active wtmp file.
