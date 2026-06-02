@@ -1,24 +1,21 @@
-// Package journal is a PostAnalyzer that detects the running kernel
-// release from systemd's persistent binary journal.
+// Package journal is a PostAnalyzer that detects the running kernel release
+// from systemd's persistent binary journal.
 //
-// On distros that route kernel messages exclusively to journald (Amazon
-// Linux 2023, RHEL 8+, Fedora, recent Ubuntu without rsyslog), the
-// kernel banner ("Linux version <release> ...") is logged to
-// /var/log/journal/<machine-id>/system.journal as a Data object. The
-// regular boot-log banner parser at pkg/fanal/analyzer/kernel/banner
-// cannot find a release on these distros because /var/log/dmesg,
-// /var/log/kern.log and /var/log/messages are not produced by default.
+// On distros that route kernel messages exclusively to journald (Amazon Linux
+// 2023, RHEL 8+, Fedora, recent Ubuntu without rsyslog), the kernel banner
+// ("Linux version <release> ...") is logged only to
+// /var/log/journal/<machine-id>/system.journal as a Data object; the regular
+// banner parser at pkg/fanal/analyzer/kernel/banner finds nothing because
+// /var/log/dmesg, kern.log and messages are not produced by default.
 //
-// The journal binary format stores each MESSAGE field's payload as
-// "MESSAGE=<text>" inside a Data object. A byte-scan of the journal for
-// the prefix "MESSAGE=Linux version " locates the kernel banner; the
-// LAST occurrence in the append-only file is the most recent boot.
+// The journal stores each MESSAGE field as "MESSAGE=<text>" in a Data object.
+// A byte-scan for "MESSAGE=Linux version " locates the banner; the LAST
+// occurrence in the append-only file is the most recent boot.
 //
-// Compressed entries are skipped. The kernel banner is short (~200 bytes)
-// and falls under journald's default 512-byte compression threshold, so
-// it is normally stored uncompressed. Custom configurations that lower
-// the threshold or unusually verbose banners may be missed; the caller
-// falls back to the GRUB heuristic in that case.
+// Compressed entries are skipped. The banner (~200 bytes) is under journald's
+// default 512-byte compression threshold, so it is normally uncompressed. A
+// lowered threshold or unusually verbose banners may be missed; the caller
+// then falls back to GRUB.
 package journal
 
 import (
@@ -71,8 +68,8 @@ func readJournal(fsys fs.FS, p string) (string, error) {
 }
 
 func (a *kernelJournalAnalyzer) Required(filePath string, _ os.FileInfo) bool {
-	// path.Match's "*" does not cross "/", so this matches any direct
-	// machine-id child without descending into nested directories.
+	// path.Match's "*" doesn't cross "/", so this matches a direct machine-id
+	// child without descending into nested directories.
 	matched, _ := path.Match(journal.Pattern, filePath)
 	return matched
 }

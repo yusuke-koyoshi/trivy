@@ -38,23 +38,21 @@ var (
 	ErrNoPkgsDetected = xerrors.New("no packages detected")
 )
 
-// runningKernelReleaseSourcePriority orders the kernel detection analyzers
-// by trustworthiness:
+// runningKernelReleaseSourcePriority orders kernel detection analyzers by
+// trustworthiness:
 //
-//   - wtmp records uname(2) output verbatim from systemd-update-utmp into
-//     a small fixed-record file, so the latest BOOT_TIME entry is the
-//     most authoritative offline source.
-//   - journald disk-writes are more synchronous than rsyslog text logs,
-//     but the active system.journal can rotate the boot banner out of
-//     view on long-running hosts.
+//   - wtmp records uname(2) verbatim into a small fixed-record file, so the
+//     latest BOOT_TIME entry is the most authoritative offline source.
+//   - journald disk-writes are more synchronous than rsyslog text logs, but
+//     the active system.journal can rotate the boot banner out on
+//     long-running hosts.
 //   - banner text logs depend on rsyslog flush timing.
-//   - GRUB saved_entry reflects next-boot intent, not the running kernel,
-//     and is only safe as a last resort.
+//   - GRUB saved_entry reflects next-boot intent, not the running kernel; a
+//     last resort only.
 //
-// Any new kernel detection analyzer that writes RunningKernelRelease MUST
-// be registered here. An unregistered Type evaluates to priority 0, which
-// causes its result to be silently outranked by every registered source —
-// a deliberately conservative default.
+// Any new analyzer writing RunningKernelRelease MUST be registered here. An
+// unregistered Type is priority 0, silently outranked by every registered
+// source — a deliberately conservative default.
 var runningKernelReleaseSourcePriority = map[Type]int{
 	TypeKernelWtmp:    4,
 	TypeKernelJournal: 3,
@@ -216,18 +214,17 @@ type AnalysisResult struct {
 	// For Red Hat
 	BuildInfo *ftypes.BuildInfo
 
-	// RunningKernelRelease is the `uname -r` of the kernel running when
-	// the artifact was captured. See runningKernelReleaseSourcePriority
-	// for the source list and conflict-resolution order. pkg/scan/ospkg
-	// cross-matches this against installed kernel packages to mark vulns
-	// of non-running kernels inactive.
+	// RunningKernelRelease is the `uname -r` of the kernel running when the
+	// artifact was captured. See runningKernelReleaseSourcePriority for the
+	// source list and conflict-resolution order. pkg/scan/ospkg cross-matches
+	// it against installed kernel packages to mark non-running kernel vulns
+	// inactive.
 	RunningKernelRelease string
 
 	// runningKernelReleaseSource records which analyzer produced
-	// RunningKernelRelease, so concurrent merges from multiple kernel
-	// detection analyzers resolve deterministically by source priority
-	// instead of by goroutine race. Internal-only; not propagated to
-	// types.ArtifactInfo.
+	// RunningKernelRelease, so concurrent merges resolve deterministically by
+	// source priority instead of by goroutine race. Internal-only; not
+	// propagated to types.ArtifactInfo.
 	runningKernelReleaseSource Type
 
 	// CustomResources hold analysis results from custom analyzers.
