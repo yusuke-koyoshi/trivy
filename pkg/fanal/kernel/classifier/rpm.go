@@ -5,26 +5,20 @@ import (
 	"github.com/aquasecurity/trivy/pkg/set"
 )
 
-// rpmKernelPackageNames is the explicit allow-list of RPM binary package
-// names recognized as kernel-related across the RHEL family
+// rpmKernelPackageNames is the allow-list of RPM kernel binary package
+// names across the RHEL family
 // (RHEL/CentOS/Alma/Rocky/Oracle/Amazon/Fedora).
 //
-// We use an allow-list rather than a structural `kernel-*` prefix match.
-// Compared with prefix matching, an allow-list has a safer failure mode
-// for a security scanner:
+// An allow-list, not a `kernel-*` prefix match, gives the safer failure
+// mode for a security scanner:
 //
-//   - A new kernel-related package missing from the list silently leaves
-//     its CVEs unsuppressed (under-coverage / noise). Someone notices it
-//     and fixes the list.
-//   - A prefix match would instead silently suppress CVEs published
-//     against `kernel-*` packages that are NOT kernels (e.g.
-//     `kernel-livepatch-repo-s3`, `kernel-srpm-macros`,
-//     `kernel-rpm-macros`). That is a false-negative — a worse failure
-//     direction.
+//   - A missing kernel name leaves its CVEs unsuppressed (noise) until
+//     someone notices and adds it.
+//   - A prefix match would suppress CVEs on `kernel-*` packages that are
+//     NOT kernels (kernel-srpm-macros, kernel-rpm-macros,
+//     kernel-livepatch-repo-s3) — a false-negative, the worse direction.
 //
-// Trade-off: when distros add new kernel variants (e.g.
-// `kernel-uek-container` from Oracle, AL2023's kernel6.12 family), this
-// list must be updated by hand. The maintenance burden is intentional.
+// Trade-off: new kernel variants need a manual update. Intentional.
 var rpmKernelPackageNames = set.New[string](
 	// generic
 	"kernel",
@@ -119,22 +113,17 @@ var rpmKernelPackageNames = set.New[string](
 	"kernel-uek-debug-modules-extra",
 )
 
-// classifyRPM identifies kernel packages on RHEL-family distros and
-// constructs the release string in the form `<Version>-<Release>.<Arch>`.
+// classifyRPM identifies RHEL-family kernel packages and builds the
+// release as `<Version>-<Release>.<Arch>`.
 //
-// Pkg.Epoch is intentionally NOT included; `uname -r` never carries an
-// epoch prefix, so omitting it keeps the cross-match correct even when
-// epoch is bumped (cf. Amazon Linux 2023 kernel epoch=1 transition).
-//
-// We use Pkg.Epoch (binary), not Pkg.SrcEpoch. For kernel packages they
-// are normally identical, and the running kernel is what matters for
-// cross-matching against `uname -r`.
+// Epoch is excluded: `uname -r` carries no epoch, so the match holds even
+// when epoch is bumped (cf. Amazon Linux 2023 kernel epoch=1 transition).
 func classifyRPM(pkg types.Package) Result {
 	if !rpmKernelPackageNames.Contains(pkg.Name) {
 		return Result{}
 	}
 	if pkg.Version == "" || pkg.Release == "" || pkg.Arch == "" {
-		// Recognized as kernel but cannot construct a comparable release.
+		// Kernel, but no comparable release can be built.
 		return Result{IsKernel: true}
 	}
 	return Result{

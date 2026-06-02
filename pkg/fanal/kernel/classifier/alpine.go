@@ -44,9 +44,8 @@ func classifyAlpine(pkg types.Package) Result {
 	if pkg.Version == "" {
 		return Result{IsKernel: true}
 	}
-	// Convert apk version "5.15.179-r0" -> uname-style "5.15.179-0".
-	// Use the rightmost "-r<digits>" to avoid matching upstream tags such
-	// as "-rc1" that may also appear earlier in the version.
+	// Convert "5.15.179-r0" -> "5.15.179-0". Rightmost "-r<digits>" avoids
+	// matching an upstream "-rc1" earlier in the version.
 	idx := strings.LastIndex(pkg.Version, "-r")
 	if idx < 0 {
 		return Result{IsKernel: true}

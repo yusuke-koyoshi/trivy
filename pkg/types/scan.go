@@ -102,12 +102,10 @@ type ScanTarget struct {
 	Secrets           []types.Secret
 	Licenses          []types.LicenseFile
 
-	// RunningKernelRelease is the kernel release the target is running.
-	// Populated from ArtifactDetail.RunningKernelRelease, which is
-	// produced by the artifact constructor (rootfs syscall) or by
-	// running-kernel analyzers (Phase 2 file parsers). Empty when no
-	// source applies; the labeler leaves all kernel packages at
-	// Active=nil in that case.
+	// RunningKernelRelease is the kernel release the target is running,
+	// from ArtifactDetail.RunningKernelRelease (artifact constructor's
+	// rootfs syscall or running-kernel analyzers). Empty when no source
+	// applies; the labeler then leaves all kernel packages at Active=nil.
 	RunningKernelRelease string
 
 	// CustomResources hold analysis results from custom analyzers.
