@@ -1,16 +1,14 @@
-// Package banner is a PostAnalyzer that detects the running kernel release
-// of an offline scan target by parsing boot log banners.
+// Package banner is a PostAnalyzer that detects an offline target's running
+// kernel release by parsing boot log banners.
 //
-// Used primarily by `trivy vm` and `trivy rootfs <other-host>` where /proc
-// is unavailable. The detected release feeds pkg/scan/ospkg's kernel
-// labeling so vulns reported for non-running kernel packages are
-// suppressed.
+// Used mainly by `trivy vm` and `trivy rootfs <other-host>` where /proc is
+// unavailable. The release feeds pkg/scan/ospkg's kernel labeling to suppress
+// vulns for non-running kernel packages.
 //
-// Known limitations:
-//   - VM images with /var on a separate partition: each partition is walked
-//     independently, so /var/log/* appears at the partition's root (e.g.
-//     "log/dmesg" rather than "var/log/dmesg") and is not picked up. Most
-//     cloud AMIs use a single-partition layout and are unaffected.
+// Limitation: with /var on a separate partition, each partition is walked
+// independently, so /var/log/* appears at the partition root (e.g. "log/dmesg"
+// not "var/log/dmesg") and is missed. Most cloud AMIs are single-partition and
+// unaffected.
 package banner
 
 import (

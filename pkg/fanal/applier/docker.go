@@ -130,9 +130,7 @@ func ApplyLayers(layers []ftypes.BlobInfo) ftypes.ArtifactDetail {
 			mergedLayer.Repository = layer.Repository
 		}
 
-		// Last non-empty wins. Single-layer artifacts (rootfs, vm) carry
-		// at most one source so order is irrelevant; multi-layer image
-		// scans never populate this field.
+		// Last non-empty wins.
 		if layer.RunningKernelRelease != "" {
 			mergedLayer.RunningKernelRelease = layer.RunningKernelRelease
 		}

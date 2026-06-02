@@ -1,12 +1,11 @@
-// Package wtmp is a PostAnalyzer that detects the running kernel
-// release from /var/log/wtmp.
+// Package wtmp is a PostAnalyzer that detects the running kernel release from
+// /var/log/wtmp.
 //
-// systemd-update-utmp.service writes the kernel release (uname -r) to
-// the ut_host field of every BOOT_TIME record, making wtmp the smallest
-// and highest-confidence offline source on standard Linux distributions.
-// Unlike the systemd journal, wtmp does not grow without bound and the
-// active file always contains the current boot's record (default
-// logrotate keeps it for at least a month).
+// systemd-update-utmp.service writes the kernel release (uname -r) to the
+// ut_host field of every BOOT_TIME record, making wtmp the smallest and
+// highest-confidence offline source on standard Linux distros. Unlike the
+// journal it doesn't grow unbounded, and the active file always holds the
+// current boot's record (default logrotate keeps it at least a month).
 package wtmp
 
 import (
