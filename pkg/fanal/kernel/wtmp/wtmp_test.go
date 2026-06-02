@@ -179,22 +179,29 @@ func TestParseStreaming(t *testing.T) {
 	}
 }
 
-// TestParseCap verifies that a stream larger than maxFileSize is
-// truncated rather than allowed to OOM.
-func TestParseCap(t *testing.T) {
-	orig := maxFileSize
-	maxFileSize = 2 * recordSizes[0] // accept exactly 2 records
-	defer func() { maxFileSize = orig }()
+// TestParseLargeStream verifies the parser reads the whole file in
+// constant memory and returns the LAST BOOT_TIME even when the file is
+// large. wtmp is append-only, so the newest boot — the running kernel —
+// lives at the tail; it must not be dropped in favor of an older record.
+// The filler pushes the stream past 50 MB (the size of the former cap) to
+// guard against reintroducing a truncating bound.
+func TestParseLargeStream(t *testing.T) {
+	const fillers = 70_000 // 70k * 400B ≈ 28 MB on each side, ~56 MB total
 
 	var buf bytes.Buffer
-	// Two BOOT_TIME records that fit under the cap.
-	buf.Write(makeRecord(bootTime, "5.15.0-89-generic"))
-	buf.Write(makeRecord(bootTime, "5.15.0-92-generic"))
-	// A third record beyond the cap; its release must NOT be returned.
-	buf.Write(makeRecord(bootTime, "6.0.0-truncated"))
+	buf.Grow((2*fillers + 2) * recordSizes[0])
+	writeFiller := func() {
+		for range fillers {
+			buf.Write(makeRecord(7, "ssh-host")) // USER_PROCESS
+		}
+	}
+	writeFiller()
+	buf.Write(makeRecord(bootTime, "5.15.0-89-generic")) // older boot, early
+	writeFiller()
+	buf.Write(makeRecord(bootTime, "6.17.0-1010-aws")) // newest boot, at the tail
 
 	got := Parse(bytes.NewReader(buf.Bytes()))
-	if got != "5.15.0-92-generic" {
-		t.Errorf("Parse(over-cap) = %q, want %q", got, "5.15.0-92-generic")
+	if got != "6.17.0-1010-aws" {
+		t.Errorf("Parse(large) = %q, want %q", got, "6.17.0-1010-aws")
 	}
 }
