@@ -453,6 +453,14 @@ func (*Encoder) component(result types.Result, pkg ftypes.Package) *core.Compone
 		}
 	}
 
+	// Emitted only for kernel packages; nil (non-kernel / unknown) stays absent.
+	if pkg.KernelActive != nil {
+		properties = append(properties, core.Property{
+			Name:  core.PropertyKernelActive,
+			Value: strconv.FormatBool(*pkg.KernelActive),
+		})
+	}
+
 	var files []core.File
 	if pkg.FilePath != "" || pkg.Digest != "" {
 		files = append(files, core.File{
