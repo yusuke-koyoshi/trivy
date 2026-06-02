@@ -1,33 +1,22 @@
-// Package grub is a PostAnalyzer that detects the running kernel release
-// from GRUB persistent state, used as a last-resort fallback when neither
-// boot log banners nor systemd journal yield a release.
-//
-// It exists for offline scan targets where the regular banner parser
-// cannot find /var/log/dmesg / kern.log / messages and the journal
-// parser cannot find an uncompressed kernel banner — e.g. configs with
-// volatile journald and rsyslog disabled.
+// Package grub is a PostAnalyzer that detects the running kernel release from
+// GRUB persistent state — a last resort when neither boot log banners nor the
+// systemd journal yield one (e.g. volatile journald with rsyslog disabled).
 //
 // Strategy:
 //
-//  1. Read /boot/grub2/grubenv (or /boot/grub/grubenv) to obtain
-//     `saved_entry=<machine-id>-<release>` — the entry GRUB writes after
-//     a successful boot.
-//  2. Open /boot/loader/entries/<saved_entry>.conf and read its
-//     `version` field, falling back to the `linux` directive's
-//     vmlinuz-<release> path.
+//  1. Read /boot/grub2/grubenv (or /boot/grub/grubenv) for
+//     `saved_entry=<machine-id>-<release>`, the entry GRUB writes after a
+//     successful boot.
+//  2. Open /boot/loader/entries/<saved_entry>.conf and read its `version`
+//     field, falling back to the `linux` directive's vmlinuz-<release> path.
 //
-// AnalysisResult.Merge ranks GRUB below banner and journal in
-// runningKernelReleaseSourcePriority, so a release reported here is
-// silently overridden whenever a higher-confidence analyzer also
-// produces one.
+// AnalysisResult.Merge ranks GRUB below banner and journal, so a release here
+// is overridden whenever a higher-confidence analyzer also produces one.
 //
-// Caveat: if `grub-set-default` is invoked after boot but before reboot,
-// `saved_entry` reflects the next-boot intent rather than the running
-// kernel for that brief window. In normal operation banner or journal
-// will provide the actual running release and override this value via
-// the merge priority; the residual risk is configurations where neither
-// of those sources yields a release AND `grub-set-default` was used
-// post-boot.
+// Caveat: a `grub-set-default` between boot and reboot makes `saved_entry`
+// next-boot intent rather than the running kernel. Normally banner or journal
+// overrides this via merge priority; the residual risk is configs where
+// neither yields a release AND `grub-set-default` was used post-boot.
 package grub
 
 import (
@@ -48,8 +37,8 @@ func init() {
 
 const version = 1
 
-// grubenvPaths lists the locations of the GRUB environment block. Distros
-// historically split between /boot/grub (legacy) and /boot/grub2 (GRUB 2).
+// grubenvPaths lists GRUB environment block locations: /boot/grub (legacy) and
+// /boot/grub2 (GRUB 2).
 var grubenvPaths = []string{
 	"boot/grub2/grubenv",
 	"boot/grub/grubenv",
@@ -78,9 +67,8 @@ func (a *kernelGRUBAnalyzer) PostAnalyze(_ context.Context, input analyzer.PostA
 	return &analyzer.AnalysisResult{RunningKernelRelease: release}, nil
 }
 
-// readSavedEntry returns the saved_entry value along with the grubenv
-// path it was read from, so the caller can log the actual source rather
-// than a hardcoded path.
+// readSavedEntry returns the saved_entry value and the grubenv path it came
+// from, so the caller can log the actual source.
 func readSavedEntry(fsys fs.FS) (entry, sourcePath string) {
 	for _, p := range grubenvPaths {
 		f, err := fsys.Open(p)

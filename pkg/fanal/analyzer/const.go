@@ -189,21 +189,17 @@ var (
 		TypeRpmqa,
 		TypeApkRepo,
 		TypeApkCommand,
-		// Kernel detection analyzers are OS-adjacent: `trivy repo`
-		// disables TypeOSes wholesale, so listing them here turns them
-		// off there too. Per-scan-mode opt-out for other scan kinds
-		// uses KernelDetectorTypes explicitly.
+		// OS-adjacent, so `trivy repo` (which disables TypeOSes) turns them off too.
 		TypeKernelBanner,
 		TypeKernelJournal,
 		TypeKernelGRUB,
 		TypeKernelWtmp,
 	}
 
-	// KernelDetectorTypes is the set of analyzers that produce
-	// AnalysisResult.RunningKernelRelease from artifact-internal sources.
-	// Disabled by default for scan modes that do not have a meaningful
-	// running kernel inside the target (image / fs / repo) and for
-	// `trivy rootfs` where the scanner-host syscall is the source.
+	// KernelDetectorTypes produce AnalysisResult.RunningKernelRelease from
+	// artifact-internal sources. Disabled when no meaningful running kernel
+	// lives inside the target (image / fs / repo) and for `trivy rootfs`,
+	// where the scanner-host syscall is the source.
 	KernelDetectorTypes = []Type{
 		TypeKernelBanner,
 		TypeKernelJournal,
