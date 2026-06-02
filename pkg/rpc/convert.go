@@ -77,6 +77,7 @@ func ConvertToRPCPkgs(pkgs []ftypes.Package) []*common.Package {
 			Indirect:     pkg.Indirect,
 			Maintainer:   pkg.Maintainer,
 			AnalyzedBy:   string(pkg.AnalyzedBy),
+			KernelActive: pkg.KernelActive,
 		})
 	}
 	return rpcPkgs
@@ -233,6 +234,7 @@ func ConvertFromRPCPkgs(rpcPkgs []*common.Package) []ftypes.Package {
 			Indirect:     pkg.Indirect,
 			Maintainer:   pkg.Maintainer,
 			AnalyzedBy:   ftypes.AnalyzerType(pkg.AnalyzedBy),
+			KernelActive: pkg.KernelActive,
 		})
 	}
 	return pkgs

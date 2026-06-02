@@ -57,6 +57,8 @@ message Package {
   string maintainer = 21;
   int32 relationship = 22;
   string analyzed_by = 23;
+  // tri-state running-kernel flag for kernel packages
+  optional bool kernel_active = 24;
 }
 
 message PkgIdentifier {

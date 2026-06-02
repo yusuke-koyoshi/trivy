@@ -48,6 +48,9 @@ const (
 	PropertyLayerDigest     = "LayerDigest"
 	PropertyLayerDiffID     = "LayerDiffID"
 
+	// PropertyKernelActive ("true"/"false") marks the running kernel; set only on kernel packages.
+	PropertyKernelActive = "KernelActive"
+
 	// Red Hat packages only.
 	// A package can use multiple NVR + Arch content sets or fields.
 	PropertyContentSet = "ContentSet"
