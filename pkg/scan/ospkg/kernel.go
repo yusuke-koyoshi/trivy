@@ -12,33 +12,24 @@ import (
 	"github.com/aquasecurity/trivy/pkg/types"
 )
 
-// labelKernelPackagesWith labels matching packages with Active=true /
-// Active=false in place. It takes the running kernel release explicitly
-// so the caller can supply it from any source (host syscall, dmesg
-// banner, test fixture).
+// labelKernelPackagesWith sets KernelActive=true/false on matching kernel
+// packages in place. `running` is passed explicitly so the caller can
+// supply it from any source (host syscall, dmesg banner, test fixture).
 //
-// Strategy:
-//  1. Run the family-aware classifier over each package; collect every
-//     kernel-related package along with its candidate release string.
-//  2. Among kernel packages, mark Active=true on those whose release
-//     matches `running`. When multiple entries share the same identity
-//     (Name+Version+Release+Arch) but differ in Epoch — the AL2023
-//     transition case — keep only the highest-Epoch one as Active=true
-//     and demote the rest to Active=false.
-//  3. Mark Active=false on every other kernel package (i.e. those whose
-//     release does not match `running`). Sibling packages from different
-//     Names that share the matching release (e.g. linux-image-X and
-//     linux-headers-X) are all Active=true independently.
-//  4. If no package matches `running`, every kernel package is left with
-//     Active=nil. This is the safe fallback that mirrors pre-feature
-//     behavior on extracted rootfs / unknown-running-kernel scans.
+// KernelActive=true goes to kernel packages whose release matches `running`;
+// siblings sharing that release (linux-image-X, linux-headers-X) each
+// match independently. When entries share an identity
+// (Name+Version+Release+Arch) but differ in Epoch — the AL2023
+// transition — only the highest-Epoch one stays true. Other kernel
+// packages become KernelActive=false. If nothing matches `running`, every
+// kernel package is left KernelActive=nil — the safe fallback for extracted
+// rootfs / unknown-running-kernel scans.
 func labelKernelPackagesWith(pkgs ftypes.Packages, family ftypes.OSType, running string) {
 	if running == "" {
 		return
 	}
 
-	// Identity key used to detect "same package, different Epoch" — the
-	// AL2023 epoch=0/epoch=1 duplicate scenario.
+	// Detects "same package, different Epoch" — the AL2023 duplicate.
 	type identityKey struct {
 		name, version, release, arch string
 	}
@@ -51,18 +42,16 @@ func labelKernelPackagesWith(pkgs ftypes.Packages, family ftypes.OSType, running
 
 	var entries []entry
 	maxEpochByID := make(map[identityKey]int)
-	anyMatch := false
 
 	for i, pkg := range pkgs {
 		r := classifier.Classify(pkg, family)
 		if !r.IsKernel {
 			continue
 		}
-		// Without a release string we cannot prove this kernel is *not* the
-		// running one, so leaving it out of the entry set keeps Active=nil
-		// and preserves its CVEs. Demoting it to Active=false (the
-		// alternative) would silently suppress vulns for what may actually
-		// be the running kernel — a false-negative we explicitly avoid.
+		// No release means we can't prove this kernel is *not* running.
+		// Skip it to keep KernelActive=nil and preserve its CVEs; demoting to
+		// false could suppress vulns for the real running kernel — a
+		// false-negative we explicitly avoid.
 		if r.Release == "" {
 			continue
 		}
@@ -72,7 +61,6 @@ func labelKernelPackagesWith(pkgs ftypes.Packages, family ftypes.OSType, running
 		}
 		if r.Matches(running) {
 			e.matches = true
-			anyMatch = true
 			if cur, ok := maxEpochByID[e.key]; !ok || pkg.Epoch > cur {
 				maxEpochByID[e.key] = pkg.Epoch
 			}
@@ -80,31 +68,28 @@ func labelKernelPackagesWith(pkgs ftypes.Packages, family ftypes.OSType, running
 		entries = append(entries, e)
 	}
 
-	if !anyMatch {
-		// Running kernel not represented in the package set; fall back to
-		// "everything Active=nil" to preserve current behavior.
+	if len(maxEpochByID) == 0 {
+		// Running kernel not in the package set; leave everything KernelActive=nil.
 		return
 	}
 
 	for _, e := range entries {
 		active := e.matches && pkgs[e.idx].Epoch == maxEpochByID[e.key]
-		pkgs[e.idx].Active = lo.ToPtr(active)
+		pkgs[e.idx].KernelActive = lo.ToPtr(active)
 	}
 }
 
-// suppressInactiveKernelVulns removes vulnerabilities whose parent package
-// has Active=false. Vulns from Active=true and Active=nil packages are
-// kept. The latter is the safe fallback for targets where the running
-// kernel could not be determined.
+// suppressInactiveKernelVulns drops vulns whose parent package has
+// KernelActive=false. KernelActive=true and nil are kept; nil is the safe fallback
+// when the running kernel is unknown.
 //
-// Suppression matches by Pkg.ID, which the dpkg/rpm/apk analyzers populate
-// reliably. If a labeled-inactive package has an empty ID — unusual but
-// possible for custom analyzers — we cannot suppress its vulns and emit a
-// warning so the missed suppression is observable rather than silent.
+// Matches by Pkg.ID, which dpkg/rpm/apk analyzers populate reliably. An
+// inactive package with an empty ID — unusual but possible for custom
+// analyzers — can't be suppressed, so we warn to keep the miss visible.
 func suppressInactiveKernelVulns(vulns []types.DetectedVulnerability, pkgs ftypes.Packages) []types.DetectedVulnerability {
 	inactive := set.New[string]()
 	for _, p := range pkgs {
-		if p.Active == nil || *p.Active {
+		if p.KernelActive == nil || *p.KernelActive {
 			continue
 		}
 		if p.ID == "" {

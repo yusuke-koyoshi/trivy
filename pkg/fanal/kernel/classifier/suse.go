@@ -40,10 +40,9 @@ func classifySUSE(pkg types.Package) Result {
 	if pkg.Version == "" || pkg.Release == "" {
 		return Result{IsKernel: true}
 	}
-	// SUSE convention: Release always carries at least one `.NN` segment that
-	// `uname -r` does not show (e.g. "150500.55.39.1" -> trim ".1"). A
-	// single-segment Release (no dots) cannot be safely trimmed; recognize
-	// the package as a kernel but emit no Release rather than guess.
+	// Release carries a trailing `.NN` that `uname -r` omits
+	// (e.g. "150500.55.39.1" -> drop ".1"). A dot-less Release can't be
+	// trimmed safely, so emit no Release rather than guess.
 	parts := strings.Split(pkg.Release, ".")
 	if len(parts) < 2 {
 		return Result{IsKernel: true}

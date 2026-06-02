@@ -7,13 +7,12 @@ import (
 	"strings"
 )
 
-// Running returns the release string of the currently running kernel
-// (equivalent to `uname -r`) by reading /proc/sys/kernel/osrelease.
+// Running returns the running kernel release (`uname -r`) from
+// /proc/sys/kernel/osrelease.
 //
-// This always returns the kernel of the host running the trivy process,
-// not necessarily the kernel of the scan target. Callers must validate
-// by cross-matching against detected kernel package release strings to
-// confirm the target is the live host.
+// This is always the host running the trivy process, not necessarily the
+// scan target. Callers must cross-match against detected kernel package
+// releases to confirm the target is the live host.
 func Running() (string, error) {
 	b, err := os.ReadFile("/proc/sys/kernel/osrelease")
 	if err != nil {

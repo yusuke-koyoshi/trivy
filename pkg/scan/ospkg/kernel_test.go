@@ -18,17 +18,17 @@ func TestLabelKernelPackagesWith_DebianMatchAndMismatch(t *testing.T) {
 	}
 	labelKernelPackagesWith(pkgs, ftypes.Ubuntu, "5.15.0-92-generic")
 
-	if pkgs[0].Active != nil {
-		t.Errorf("openssl Active = %v; want nil", pkgs[0].Active)
+	if pkgs[0].KernelActive != nil {
+		t.Errorf("openssl KernelActive = %v; want nil", pkgs[0].KernelActive)
 	}
-	if pkgs[1].Active == nil || *pkgs[1].Active {
-		t.Errorf("linux-image-old Active = %v; want false", pkgs[1].Active)
+	if pkgs[1].KernelActive == nil || *pkgs[1].KernelActive {
+		t.Errorf("linux-image-old KernelActive = %v; want false", pkgs[1].KernelActive)
 	}
-	if pkgs[2].Active == nil || !*pkgs[2].Active {
-		t.Errorf("linux-image-new Active = %v; want true", pkgs[2].Active)
+	if pkgs[2].KernelActive == nil || !*pkgs[2].KernelActive {
+		t.Errorf("linux-image-new KernelActive = %v; want true", pkgs[2].KernelActive)
 	}
-	if pkgs[3].Active == nil || !*pkgs[3].Active {
-		t.Errorf("linux-headers-new Active = %v; want true (matches running release)", pkgs[3].Active)
+	if pkgs[3].KernelActive == nil || !*pkgs[3].KernelActive {
+		t.Errorf("linux-headers-new KernelActive = %v; want true (matches running release)", pkgs[3].KernelActive)
 	}
 }
 
@@ -37,7 +37,7 @@ func TestLabelKernelPackagesWith_DebianMatchAndMismatch(t *testing.T) {
 // release such as "6.12.63+deb13-cloud-amd64", while the shared headers
 // package is named "linux-headers-6.12.63+deb13-common" with no flavor.
 // Without prefix matching the common package would be demoted to
-// Active=false even though it belongs to the running kernel.
+// KernelActive=false even though it belongs to the running kernel.
 func TestLabelKernelPackagesWith_DebianCommonHeaders(t *testing.T) {
 	pkgs := ftypes.Packages{
 		{ID: "linux-image-running", Name: "linux-image-6.12.63+deb13-cloud-amd64"},
@@ -47,17 +47,17 @@ func TestLabelKernelPackagesWith_DebianCommonHeaders(t *testing.T) {
 	}
 	labelKernelPackagesWith(pkgs, ftypes.Debian, "6.12.63+deb13-cloud-amd64")
 
-	if pkgs[0].Active == nil || !*pkgs[0].Active {
-		t.Errorf("flavor-bound running image: want Active=true; got %v", pkgs[0].Active)
+	if pkgs[0].KernelActive == nil || !*pkgs[0].KernelActive {
+		t.Errorf("flavor-bound running image: want KernelActive=true; got %v", pkgs[0].KernelActive)
 	}
-	if pkgs[1].Active == nil || !*pkgs[1].Active {
-		t.Errorf("flavor-bound running headers: want Active=true; got %v", pkgs[1].Active)
+	if pkgs[1].KernelActive == nil || !*pkgs[1].KernelActive {
+		t.Errorf("flavor-bound running headers: want KernelActive=true; got %v", pkgs[1].KernelActive)
 	}
-	if pkgs[2].Active == nil || !*pkgs[2].Active {
-		t.Errorf("common headers matching running version: want Active=true; got %v", pkgs[2].Active)
+	if pkgs[2].KernelActive == nil || !*pkgs[2].KernelActive {
+		t.Errorf("common headers matching running version: want KernelActive=true; got %v", pkgs[2].KernelActive)
 	}
-	if pkgs[3].Active == nil || *pkgs[3].Active {
-		t.Errorf("common headers for unrelated version: want Active=false; got %v", pkgs[3].Active)
+	if pkgs[3].KernelActive == nil || *pkgs[3].KernelActive {
+		t.Errorf("common headers for unrelated version: want KernelActive=false; got %v", pkgs[3].KernelActive)
 	}
 }
 
@@ -71,14 +71,14 @@ func TestLabelKernelPackagesWith_UbuntuVersionOnlyHeaders(t *testing.T) {
 	}
 	labelKernelPackagesWith(pkgs, ftypes.Ubuntu, "5.15.0-92-generic")
 
-	if pkgs[0].Active == nil || !*pkgs[0].Active {
-		t.Errorf("flavor-bound running image: want Active=true; got %v", pkgs[0].Active)
+	if pkgs[0].KernelActive == nil || !*pkgs[0].KernelActive {
+		t.Errorf("flavor-bound running image: want KernelActive=true; got %v", pkgs[0].KernelActive)
 	}
-	if pkgs[1].Active == nil || !*pkgs[1].Active {
-		t.Errorf("version-only headers matching running: want Active=true; got %v", pkgs[1].Active)
+	if pkgs[1].KernelActive == nil || !*pkgs[1].KernelActive {
+		t.Errorf("version-only headers matching running: want KernelActive=true; got %v", pkgs[1].KernelActive)
 	}
-	if pkgs[2].Active == nil || *pkgs[2].Active {
-		t.Errorf("version-only headers for older kernel: want Active=false; got %v", pkgs[2].Active)
+	if pkgs[2].KernelActive == nil || *pkgs[2].KernelActive {
+		t.Errorf("version-only headers for older kernel: want KernelActive=false; got %v", pkgs[2].KernelActive)
 	}
 }
 
@@ -91,8 +91,8 @@ func TestLabelKernelPackagesWith_NoMatchFallback(t *testing.T) {
 	labelKernelPackagesWith(pkgs, ftypes.Debian, "5.14.0-503.el9.x86_64") // RHEL host kernel
 
 	for i := range pkgs {
-		if pkgs[i].Active != nil {
-			t.Errorf("pkg[%d] Active = %v; want nil (fallback)", i, pkgs[i].Active)
+		if pkgs[i].KernelActive != nil {
+			t.Errorf("pkg[%d] KernelActive = %v; want nil (fallback)", i, pkgs[i].KernelActive)
 		}
 	}
 }
@@ -105,11 +105,11 @@ func TestLabelKernelPackagesWith_AL2023EpochTransition(t *testing.T) {
 	}
 	labelKernelPackagesWith(pkgs, ftypes.Amazon, "6.1.158-178.288.amzn2023.aarch64")
 
-	if pkgs[0].Active == nil || *pkgs[0].Active {
-		t.Errorf("epoch=0 should be Active=false; got %v", pkgs[0].Active)
+	if pkgs[0].KernelActive == nil || *pkgs[0].KernelActive {
+		t.Errorf("epoch=0 should be KernelActive=false; got %v", pkgs[0].KernelActive)
 	}
-	if pkgs[1].Active == nil || !*pkgs[1].Active {
-		t.Errorf("epoch=1 should be Active=true; got %v", pkgs[1].Active)
+	if pkgs[1].KernelActive == nil || !*pkgs[1].KernelActive {
+		t.Errorf("epoch=1 should be KernelActive=true; got %v", pkgs[1].KernelActive)
 	}
 }
 
@@ -118,15 +118,15 @@ func TestLabelKernelPackagesWith_EmptyRunning(t *testing.T) {
 		{ID: "linux-image", Name: "linux-image-5.15.0-92-generic"},
 	}
 	labelKernelPackagesWith(pkgs, ftypes.Ubuntu, "")
-	if pkgs[0].Active != nil {
-		t.Errorf("empty running should leave Active=nil; got %v", pkgs[0].Active)
+	if pkgs[0].KernelActive != nil {
+		t.Errorf("empty running should leave KernelActive=nil; got %v", pkgs[0].KernelActive)
 	}
 }
 
 // TestLabelKernelPackagesWith_KernelWithoutReleaseStaysNil verifies that a
 // kernel package the classifier could not produce a release string for is
-// left Active=nil even when other kernels match the running release. The
-// alternative (Active=false) would silently suppress its vulns even when
+// left KernelActive=nil even when other kernels match the running release. The
+// alternative (KernelActive=false) would silently suppress its vulns even when
 // the package might actually be the running kernel.
 func TestLabelKernelPackagesWith_KernelWithoutReleaseStaysNil(t *testing.T) {
 	pkgs := ftypes.Packages{
@@ -134,16 +134,16 @@ func TestLabelKernelPackagesWith_KernelWithoutReleaseStaysNil(t *testing.T) {
 		// IsKernel=true but Release="" because trimming would be unsafe.
 		{ID: "kernel-default-noseg", Name: "kernel-default", Version: "5.14.21", Release: "150500"},
 		// Another SUSE kernel that does match the running release. Without
-		// the fix, the noseg one above would be demoted to Active=false.
+		// the fix, the noseg one above would be demoted to KernelActive=false.
 		{ID: "kernel-default-match", Name: "kernel-default", Version: "5.14.21", Release: "150500.55.39.1"},
 	}
 	labelKernelPackagesWith(pkgs, ftypes.SLES, "5.14.21-150500.55.39-default")
 
-	if pkgs[0].Active != nil {
-		t.Errorf("kernel without release should stay Active=nil; got %v", pkgs[0].Active)
+	if pkgs[0].KernelActive != nil {
+		t.Errorf("kernel without release should stay KernelActive=nil; got %v", pkgs[0].KernelActive)
 	}
-	if pkgs[1].Active == nil || !*pkgs[1].Active {
-		t.Errorf("matching kernel should be Active=true; got %v", pkgs[1].Active)
+	if pkgs[1].KernelActive == nil || !*pkgs[1].KernelActive {
+		t.Errorf("matching kernel should be KernelActive=true; got %v", pkgs[1].KernelActive)
 	}
 }
 
@@ -156,12 +156,12 @@ func TestSuppressInactiveKernelVulns_RealisticPkgIDFormat(t *testing.T) {
 		{
 			ID:   "linux-image-5.15.0-89-generic@5.15.0-89.99",
 			Name: "linux-image-5.15.0-89-generic", Version: "5.15.0-89.99",
-			Active: &fls,
+			KernelActive: &fls,
 		},
 		{
 			ID:   "linux-image-5.15.0-92-generic@5.15.0-92.102",
 			Name: "linux-image-5.15.0-92-generic", Version: "5.15.0-92.102",
-			Active: &tru,
+			KernelActive: &tru,
 		},
 	}
 	vulns := []types.DetectedVulnerability{
@@ -179,9 +179,9 @@ func TestSuppressInactiveKernelVulns(t *testing.T) {
 	fls := false
 
 	pkgs := ftypes.Packages{
-		{ID: "linux-image-active", Name: "linux-image-5.15.0-92-generic", Active: &tru},
-		{ID: "linux-image-old", Name: "linux-image-5.15.0-89-generic", Active: &fls},
-		{ID: "openssl", Name: "openssl"}, // Active=nil
+		{ID: "linux-image-active", Name: "linux-image-5.15.0-92-generic", KernelActive: &tru},
+		{ID: "linux-image-old", Name: "linux-image-5.15.0-89-generic", KernelActive: &fls},
+		{ID: "openssl", Name: "openssl"}, // KernelActive=nil
 	}
 
 	vulns := []types.DetectedVulnerability{
@@ -207,7 +207,7 @@ func TestSuppressInactiveKernelVulns(t *testing.T) {
 func TestSuppressInactiveKernelVulns_NoInactive(t *testing.T) {
 	tru := true
 	pkgs := ftypes.Packages{
-		{ID: "linux-image-active", Name: "linux-image-5.15.0-92-generic", Active: &tru},
+		{ID: "linux-image-active", Name: "linux-image-5.15.0-92-generic", KernelActive: &tru},
 		{ID: "openssl", Name: "openssl"},
 	}
 	vulns := []types.DetectedVulnerability{
@@ -232,7 +232,7 @@ func TestLabelAndSuppress_Integration(t *testing.T) {
 		running           string
 		pkgs              ftypes.Packages
 		vulns             []types.DetectedVulnerability
-		wantActiveByID    map[string]*bool // nil pointer means we expect Active=nil
+		wantActiveByID    map[string]*bool // nil pointer means we expect KernelActive=nil
 		wantSurvivingVuln []string
 	}{
 		{
@@ -307,12 +307,12 @@ func TestLabelAndSuppress_Integration(t *testing.T) {
 					continue
 				}
 				switch {
-				case want == nil && p.Active != nil:
-					t.Errorf("pkg %q Active = %v; want nil", p.ID, *p.Active)
-				case want != nil && p.Active == nil:
-					t.Errorf("pkg %q Active = nil; want %v", p.ID, *want)
-				case want != nil && p.Active != nil && *want != *p.Active:
-					t.Errorf("pkg %q Active = %v; want %v", p.ID, *p.Active, *want)
+				case want == nil && p.KernelActive != nil:
+					t.Errorf("pkg %q KernelActive = %v; want nil", p.ID, *p.KernelActive)
+				case want != nil && p.KernelActive == nil:
+					t.Errorf("pkg %q KernelActive = nil; want %v", p.ID, *want)
+				case want != nil && p.KernelActive != nil && *want != *p.KernelActive:
+					t.Errorf("pkg %q KernelActive = %v; want %v", p.ID, *p.KernelActive, *want)
 				}
 			}
 
@@ -344,6 +344,6 @@ func TestSuppressInactiveKernelVulns_AllNil(t *testing.T) {
 	}
 	got := suppressInactiveKernelVulns(vulns, pkgs)
 	if len(got) != 2 {
-		t.Errorf("Active=nil should not suppress; got %d vulns (want 2)", len(got))
+		t.Errorf("KernelActive=nil should not suppress; got %d vulns (want 2)", len(got))
 	}
 }
