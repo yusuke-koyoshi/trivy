@@ -286,11 +286,8 @@ func TestCalcKey(t *testing.T) {
 	}
 }
 
-// TestCalcKey_RunningKernelRelease asserts artifactOpt.RunningKernelRelease
-// participates in the cache key, so a host kernel change between scans of the
-// same artifact (e.g. `trivy rootfs` against a clean git tree across kernel
-// upgrades) invalidates the cached blob instead of mis-labeling against the
-// previous running release.
+// TestCalcKey_RunningKernelRelease keeps a host kernel change between scans
+// from being lost to a stale cached blob.
 func TestCalcKey_RunningKernelRelease(t *testing.T) {
 	const id = "sha256:5c534be56eca62e756ef2ef51523feda0f19cd7c15bb0c015e3d6e3ae090bf6e"
 
