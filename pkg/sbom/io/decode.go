@@ -418,6 +418,10 @@ func fillPkgFieldsFromComponentProps(props []core.Property, pkg *ftypes.Package)
 			}
 		case core.PropertyModularitylabel:
 			pkg.Modularitylabel = prop.Value
+		case core.PropertyKernelActive:
+			if b, err := strconv.ParseBool(prop.Value); err == nil {
+				pkg.KernelActive = &b
+			}
 		case core.PropertyLayerDigest:
 			pkg.Layer.Digest = prop.Value
 		case core.PropertyLayerDiffID:

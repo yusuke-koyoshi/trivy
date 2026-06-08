@@ -48,6 +48,14 @@ func (s *scanner) Scan(ctx context.Context, target types.ScanTarget, opts types.
 	}
 
 	sort.Sort(target.Packages)
+
+	// In-place mutation is visible both in the SBOM (result.Packages
+	// shares the slice) and to the vuln suppression below.
+	if running := target.RunningKernelRelease; running != "" {
+		log.Info("Detected running kernel", log.String("release", running))
+		labelKernelPackagesWith(target.Packages, target.OS.Family, running)
+	}
+
 	result.Packages = target.Packages
 
 	if !opts.Scanners.Enabled(types.VulnerabilityScanner) {
@@ -65,6 +73,12 @@ func (s *scanner) Scan(ctx context.Context, target types.ScanTarget, opts types.
 		// Return a result for those who want to override the error handling.
 		return result, false, xerrors.Errorf("failed vulnerability detection of OS packages: %w", err)
 	}
+
+	// Drop vulns from inactive kernel packages so the report surfaces
+	// only the running kernel's issues. KernelActive=nil packages (unknown
+	// running kernel, non-kernel) are always retained.
+	vulns = suppressInactiveKernelVulns(vulns, target.Packages)
+
 	result.Vulnerabilities = vulns
 
 	return result, eosl, nil

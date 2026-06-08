@@ -190,6 +190,12 @@ type BlobInfo struct {
 	// ref. https://redhat-connect.gitbook.io/partner-guide-for-adopting-red-hat-oval-v2/determining-common-platform-enumeration-cpe
 	BuildInfo *BuildInfo `json:",omitempty"`
 
+	// RunningKernelRelease is the kernel release the artifact was running
+	// at capture time. Populated by the artifact constructor from
+	// artifact.Option (rootfs syscall) or by running-kernel analyzers
+	// (Phase 2 file parsers). Empty otherwise.
+	RunningKernelRelease string `json:",omitempty"`
+
 	// CustomResources hold analysis results from custom analyzers.
 	// It is for extensibility and not used in OSS.
 	CustomResources []CustomResource `json:",omitempty"`
@@ -216,6 +222,11 @@ type ArtifactDetail struct {
 
 	// ImageConfig has information from container image config
 	ImageConfig ImageConfigDetail
+
+	// RunningKernelRelease is the running kernel release after layers
+	// have been applied. See BlobInfo.RunningKernelRelease for the
+	// per-blob field this is merged from.
+	RunningKernelRelease string `json:",omitempty"`
 
 	// CustomResources hold analysis results from custom analyzers.
 	// It is for extensibility and not used in OSS.

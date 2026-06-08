@@ -116,6 +116,13 @@ func ApplyLayers(layers []ftypes.BlobInfo) ftypes.ArtifactDetail {
 			mergedLayer.Repository = layer.Repository
 		}
 
+		// Last non-empty wins. `trivy rootfs` builds a single-layer
+		// artifact, so the iteration order is moot for the only
+		// producer in Phase 1.
+		if layer.RunningKernelRelease != "" {
+			mergedLayer.RunningKernelRelease = layer.RunningKernelRelease
+		}
+
 		// Apply OS packages
 		for _, pkgInfo := range layer.PackageInfos {
 			key := fmt.Sprintf("%s/type:ospkg", pkgInfo.FilePath)
