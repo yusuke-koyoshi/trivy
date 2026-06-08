@@ -152,6 +152,14 @@ const (
 	// =======
 	TypeRedHatContentManifestType Type = "redhat-content-manifest"
 	TypeRedHatDockerfileType      Type = "redhat-dockerfile"
+
+	// ==============
+	// Kernel runtime
+	// ==============
+	TypeKernelBanner  Type = "kernel-banner"
+	TypeKernelJournal Type = "kernel-journal"
+	TypeKernelGRUB    Type = "kernel-grub"
+	TypeKernelWtmp    Type = "kernel-wtmp"
 )
 
 var (
@@ -181,6 +189,22 @@ var (
 		TypeRpmqa,
 		TypeApkRepo,
 		TypeApkCommand,
+		// OS-adjacent, so `trivy repo` (which disables TypeOSes) turns them off too.
+		TypeKernelBanner,
+		TypeKernelJournal,
+		TypeKernelGRUB,
+		TypeKernelWtmp,
+	}
+
+	// KernelDetectorTypes produce AnalysisResult.RunningKernelRelease from
+	// artifact-internal sources. Disabled when no meaningful running kernel
+	// lives inside the target (image / fs / repo) and for `trivy rootfs`,
+	// where the scanner-host syscall is the source.
+	KernelDetectorTypes = []Type{
+		TypeKernelBanner,
+		TypeKernelJournal,
+		TypeKernelGRUB,
+		TypeKernelWtmp,
 	}
 
 	// TypeLanguages has all language analyzers

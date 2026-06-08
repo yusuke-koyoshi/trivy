@@ -116,9 +116,7 @@ func ApplyLayers(layers []ftypes.BlobInfo) ftypes.ArtifactDetail {
 			mergedLayer.Repository = layer.Repository
 		}
 
-		// Last non-empty wins. `trivy rootfs` builds a single-layer
-		// artifact, so the iteration order is moot for the only
-		// producer in Phase 1.
+		// Last non-empty wins.
 		if layer.RunningKernelRelease != "" {
 			mergedLayer.RunningKernelRelease = layer.RunningKernelRelease
 		}
