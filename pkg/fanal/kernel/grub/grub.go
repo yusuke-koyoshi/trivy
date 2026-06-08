@@ -39,10 +39,16 @@ func ParseGrubenv(r io.Reader, key string) string {
 	return val
 }
 
+// blsLinuxImagePrefixes is the set of kernel-image basename prefixes
+// stripped to recover <release>. vmlinuz- is the standard; the rest are
+// defensive against non-vmlinuz BLS entries observed across architectures
+// and vendor builds.
+var blsLinuxImagePrefixes = []string{"vmlinuz-", "bzImage-", "vmlinux-", "Image-"}
+
 // ParseBLSVersion extracts the kernel release from a Boot Loader Spec
 // entry file (typically under /boot/loader/entries/). Prefers the
 // explicit `version` field; falls back to extracting from the `linux`
-// line's vmlinuz path.
+// line's <image>-<release> basename.
 func ParseBLSVersion(r io.Reader) string {
 	var version, linux string
 	s := bufio.NewScanner(r)
@@ -65,9 +71,14 @@ func ParseBLSVersion(r io.Reader) string {
 	if version != "" {
 		return version
 	}
-	// Fall back to the release in the `linux` directive's vmlinuz-<release> path.
-	if i := strings.LastIndex(linux, "vmlinuz-"); i >= 0 {
-		return linux[i+len("vmlinuz-"):]
+	base := linux
+	if i := strings.LastIndex(linux, "/"); i >= 0 {
+		base = linux[i+1:]
+	}
+	for _, prefix := range blsLinuxImagePrefixes {
+		if rel, ok := strings.CutPrefix(base, prefix); ok {
+			return rel
+		}
 	}
 	return ""
 }
