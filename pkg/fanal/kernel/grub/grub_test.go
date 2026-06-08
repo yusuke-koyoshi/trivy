@@ -101,6 +101,33 @@ func TestParseBLSVersion(t *testing.T) {
 			want: "6.1.141-167.250.amzn2023.aarch64",
 		},
 		{
+			name: "fallback recognizes Image- prefix",
+			input: strings.Join([]string{
+				"title T",
+				"linux /boot/Image-6.4.0-x",
+				"",
+			}, "\n"),
+			want: "6.4.0-x",
+		},
+		{
+			name: "fallback recognizes bzImage- prefix",
+			input: strings.Join([]string{
+				"title T",
+				"linux /boot/bzImage-5.15.0-x",
+				"",
+			}, "\n"),
+			want: "5.15.0-x",
+		},
+		{
+			name: "fallback recognizes vmlinux- prefix",
+			input: strings.Join([]string{
+				"title T",
+				"linux /boot/vmlinux-6.6.0-x",
+				"",
+			}, "\n"),
+			want: "6.6.0-x",
+		},
+		{
 			name:  "no kernel info present",
 			input: "title Some Entry\noptions root=...\n",
 			want:  "",
