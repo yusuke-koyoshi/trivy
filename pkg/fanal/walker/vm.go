@@ -5,7 +5,6 @@ import (
 	"io"
 	"io/fs"
 	"path/filepath"
-	"slices"
 	"strings"
 
 	"github.com/masahiro331/go-disk"
@@ -23,23 +22,9 @@ import (
 	xio "github.com/aquasecurity/trivy/pkg/x/io"
 )
 
-var requiredDiskName = []string{
-	"Linux",    // AmazonLinux image name
-	"p.lxroot", // SLES image name
-	"primary",  // Common image name
-	"0",        // Common image name
-	"1",        // Common image name
-	"2",        // Common image name
-	"3",        // Common image name
-}
-
 var checkFsFuncs = []diskFs.CheckFsFunc{
 	ext4.Check,
 	xfs.Check,
-}
-
-func AppendPermitDiskName(s ...string) {
-	requiredDiskName = append(requiredDiskName, s...)
 }
 
 type VM struct {
@@ -140,17 +125,6 @@ func (w *VM) fsWalk(fsys fs.FS, path string, d fs.DirEntry, err error) error {
 		return nil
 	case utils.SkipPath(pathName, w.skipFiles):
 		return nil
-	case fi.Mode()&0x1000 == 0x1000 ||
-		fi.Mode()&0x2000 == 0x2000 ||
-		fi.Mode()&0x6000 == 0x6000 ||
-		fi.Mode()&0xA000 == 0xA000 ||
-		fi.Mode()&0xc000 == 0xc000:
-		// 	0x1000:	S_IFIFO (FIFO)
-		// 	0x2000:	S_IFCHR (Character device)
-		// 	0x6000:	S_IFBLK (Block device)
-		// 	0xA000:	S_IFLNK (Symbolic link)
-		// 	0xC000:	S_IFSOCK (Socket)
-		return nil
 	}
 
 	cvf := newCachedVMFile(fsys, pathName)
@@ -202,21 +176,39 @@ func (cvf *cachedVMFile) Clean() error {
 }
 
 func (w *VM) detectLVM(sr io.SectionReader) (bool, error) {
-	buf := make([]byte, 512)
-	_, err := sr.ReadAt(buf, 512)
-	if err != nil {
-		return false, xerrors.Errorf("read header block error: %w", err)
-	}
-	_, err = sr.Seek(0, io.SeekStart)
-	if err != nil {
-		return false, xerrors.Errorf("seek error: %w", err)
+	defer sr.Seek(0, io.SeekStart)
+
+	var buf [8]byte
+	var lastErr error
+	var anyRead bool
+	// LVM2: "LABELONE" can appear in sectors 0-3 (LABEL_SCAN_SECTORS = 4)
+	for _, offset := range []int64{0, 512, 1024, 1536} {
+		if _, err := sr.ReadAt(buf[:], offset); err != nil {
+			lastErr = err
+			continue
+		}
+		anyRead = true
+		if string(buf[:]) == "LABELONE" {
+			return true, nil
+		}
+		// LVM1: "HM" at sector 0 only
+		if offset == 0 && string(buf[:2]) == "HM" {
+			return true, nil
+		}
 	}
 
-	// LABELONE is LVM signature
-	if string(buf[:8]) == "LABELONE" {
-		return true, nil
+	// If no sector was successfully read, return the last error
+	if !anyRead {
+		return false, xerrors.Errorf("read header block error: %w", lastErr)
 	}
 	return false, nil
+}
+
+// linuxSwapGUID is the GPT partition type GUID for Linux swap.
+// 0657FD6D-A4AB-43C4-84E5-0933C84B4F4F
+var linuxSwapGUID = gpt.GUID{
+	0x6D, 0xFD, 0x57, 0x06, 0xAB, 0xA4, 0xC4, 0x43,
+	0x84, 0xE5, 0x09, 0x33, 0xC8, 0x4B, 0x4F, 0x4F,
 }
 
 func shouldSkip(partition types.Partition) bool {
@@ -225,15 +217,12 @@ func shouldSkip(partition types.Partition) bool {
 		return true
 	}
 
-	if !slices.Contains(requiredDiskName, partition.Name()) {
-		return true
-	}
-
 	switch p := partition.(type) {
 	case *gpt.PartitionEntry:
-		return p.Bootable()
+		return p.Bootable() || p.PartitionTypeGUID == linuxSwapGUID
 	case *mbr.Partition:
-		return false
+		// 0x82: Linux swap, 0x05/0x0F: Extended partition (container, no filesystem)
+		return p.Type == 0x82 || p.Type == 0x05 || p.Type == 0x0F
 	}
 	return false
 }

@@ -356,9 +356,11 @@ func (r *runner) initJavaDB(opts flag.Options) error {
 		return nil
 	}
 
-	// If vulnerability scanning and SBOM generation are disabled, it doesn't need to download the Java database.
+	// If vulnerability scanning, SBOM generation, and library package extraction are all disabled,
+	// it doesn't need to download the Java database.
 	if !opts.Scanners.Enabled(types.VulnerabilityScanner) &&
-		!slices.Contains(types.SupportedSBOMFormats, opts.Format) {
+		!slices.Contains(types.SupportedSBOMFormats, opts.Format) &&
+		!slices.Contains(opts.PkgTypes, types.PkgTypeLibrary) {
 		return nil
 	}
 
@@ -522,14 +524,6 @@ func disabledAnalyzers(opts flag.Options) []analyzer.Type {
 	// It is performed only when '--scanners license' and '--license-full' are specified together.
 	if !opts.Scanners.Enabled(types.LicenseScanner) || !opts.LicenseFull {
 		analyzers = append(analyzers, analyzer.TypeLicenseFile)
-	}
-
-	// Parsing jar files requires Java-db client
-	// But we don't create client if vulnerability analysis is disabled and SBOM format is not used
-	// We need to disable jar analyzer to avoid errors
-	// TODO disable all languages that don't contain license information for this case
-	if !opts.Scanners.Enabled(types.VulnerabilityScanner) && !slices.Contains(types.SupportedSBOMFormats, opts.Format) {
-		analyzers = append(analyzers, analyzer.TypeJar)
 	}
 
 	// Do not perform misconfiguration scanning on container image config
