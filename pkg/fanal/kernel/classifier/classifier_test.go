@@ -220,6 +220,63 @@ func TestClassify_RPM(t *testing.T) {
 			family: types.Amazon,
 			want:   Result{},
 		},
+		{
+			// AL2023 started shipping kernel majors with the version in the
+			// package name once kernel6.12 and kernel6.18 lived side-by-side.
+			name:   "AL2023 kernel6.12 (versioned name)",
+			pkg:    types.Package{Name: "kernel6.12", Epoch: 0, Version: "6.12.35", Release: "55.103.amzn2023", Arch: "x86_64"},
+			family: types.Amazon,
+			want:   Result{IsKernel: true, Release: "6.12.35-55.103.amzn2023.x86_64"},
+		},
+		{
+			name:   "AL2023 kernel6.18 epoch=1 (versioned name)",
+			pkg:    types.Package{Name: "kernel6.18", Epoch: 1, Version: "6.18.15", Release: "14.217.amzn2023", Arch: "aarch64"},
+			family: types.Amazon,
+			want:   Result{IsKernel: true, Release: "6.18.15-14.217.amzn2023.aarch64"},
+		},
+		{
+			name:   "AL2023 kernel6.12-devel subpackage",
+			pkg:    types.Package{Name: "kernel6.12-devel", Version: "6.12.35", Release: "55.103.amzn2023", Arch: "x86_64"},
+			family: types.Amazon,
+			want:   Result{IsKernel: true, Release: "6.12.35-55.103.amzn2023.x86_64"},
+		},
+		{
+			name:   "AL2023 kernel6.18-modules-extra subpackage",
+			pkg:    types.Package{Name: "kernel6.18-modules-extra", Version: "6.18.15", Release: "14.217.amzn2023", Arch: "aarch64"},
+			family: types.Amazon,
+			want:   Result{IsKernel: true, Release: "6.18.15-14.217.amzn2023.aarch64"},
+		},
+		{
+			// Shipped alongside -modules-extra per ALAS2023 advisories.
+			name:   "AL2023 kernel6.12-modules-extra-common subpackage",
+			pkg:    types.Package{Name: "kernel6.12-modules-extra-common", Version: "6.12.35", Release: "55.103.amzn2023", Arch: "x86_64"},
+			family: types.Amazon,
+			want:   Result{IsKernel: true, Release: "6.12.35-55.103.amzn2023.x86_64"},
+		},
+		{
+			// AL2023-specific suffix; RHEL ships kernel-tools-libs-devel
+			// instead of -tools-devel.
+			name:   "AL2023 kernel6.12-tools-devel",
+			pkg:    types.Package{Name: "kernel6.12-tools-devel", Version: "6.12.35", Release: "55.103.amzn2023", Arch: "x86_64"},
+			family: types.Amazon,
+			want:   Result{IsKernel: true, Release: "6.12.35-55.103.amzn2023.x86_64"},
+		},
+		{
+			// kernel6.x-libbpf-* are shipped from the kernel SRPM but libbpf
+			// is a userspace library — its CVEs hit userspace regardless of
+			// which kernel is booted, so classifying it as a kernel package
+			// would silently suppress libbpf-specific vulns.
+			name:   "kernel6.12-libbpf-devel (userspace sibling) not classified",
+			pkg:    types.Package{Name: "kernel6.12-libbpf-devel", Version: "6.12.35", Release: "55.103.amzn2023", Arch: "x86_64"},
+			family: types.Amazon,
+			want:   Result{},
+		},
+		{
+			name:   "kernel without trailing digits not classified",
+			pkg:    types.Package{Name: "kernelfoo", Version: "1.0", Release: "1", Arch: "noarch"},
+			family: types.Amazon,
+			want:   Result{},
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
