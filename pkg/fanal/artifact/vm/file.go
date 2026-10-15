@@ -66,7 +66,15 @@ func newFile(filePath string, storage Storage) (imgFile *ImageFile, err error) {
 		if err != nil {
 			return nil, xerrors.Errorf("file stat error: %w", err)
 		}
-		reader = io.NewSectionReader(f, 0, fi.Size())
+		size := fi.Size()
+		// Block devices report 0 from Stat; probe size via Seek so /dev/sda etc. can be scanned.
+		if size == 0 {
+			size, err = f.Seek(0, io.SeekEnd)
+			if err != nil {
+				return nil, xerrors.Errorf("seek end error: %w", err)
+			}
+		}
+		reader = io.NewSectionReader(f, 0, size)
 	}
 
 	return &ImageFile{
