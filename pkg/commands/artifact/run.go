@@ -103,10 +103,10 @@ type runner struct {
 	versionChecker        *notification.VersionChecker
 	dbOpen                bool
 
-	// runningKernelRelease is set by ScanRootfs from the scanner host's
-	// uname -r and copied onto ArtifactOption.RunningKernelRelease in
-	// initScannerConfig. Other ScanX entry points leave it empty so the
-	// scanner kernel is never used as a stand-in for an offline target.
+	// runningKernelRelease holds the scanner host's uname -r, set by
+	// ScanRootfs and copied onto ArtifactOption.RunningKernelRelease in
+	// initScannerConfig. Empty for other ScanX entry points so the scanner
+	// kernel is never used as a stand-in for an offline target.
 	runningKernelRelease string
 
 	// WASM modules
@@ -207,6 +207,9 @@ func (r *runner) ScanImage(ctx context.Context, opts flag.Options) (types.Report
 	// Disable the lock file scanning
 	opts.DisabledAnalyzers = analyzer.TypeLockfiles
 
+	// Images share the host kernel, so skip the kernel detection analyzers.
+	opts.DisabledAnalyzers = append(opts.DisabledAnalyzers, analyzer.KernelDetectorTypes...)
+
 	var s InitializeScanService
 	switch {
 	case opts.Input != "" && opts.ServerAddr == "":
@@ -231,6 +234,9 @@ func (r *runner) ScanFilesystem(ctx context.Context, opts flag.Options) (types.R
 	opts.DisabledAnalyzers = append(opts.DisabledAnalyzers, analyzer.TypeIndividualPkgs...)
 	opts.DisabledAnalyzers = append(opts.DisabledAnalyzers, analyzer.TypeSBOM)
 
+	// `trivy fs` targets sources, not a kernel-bearing system, so skip the kernel detection analyzers.
+	opts.DisabledAnalyzers = append(opts.DisabledAnalyzers, analyzer.KernelDetectorTypes...)
+
 	return r.scanFS(ctx, opts)
 }
 
@@ -238,13 +244,8 @@ func (r *runner) ScanRootfs(ctx context.Context, opts flag.Options) (types.Repor
 	// Disable the lock file scanning
 	opts.DisabledAnalyzers = append(opts.DisabledAnalyzers, analyzer.TypeLockfiles...)
 
-	// `trivy rootfs` plumbs the scanner host's `uname -r` into the
-	// artifact pipeline. When target == "/" the value is authoritative;
-	// for `trivy rootfs /mnt/extracted` the scanner kernel may not match
-	// the target rootfs, but the labeler's cross-match in
-	// labelKernelPackagesWith leaves all kernel packages at Active=nil
-	// when no installed kernel matches, which neutralizes the mismatch
-	// in the common case. Other ScanX entry points leave the field empty.
+	// Use the scanner host's `uname -r` as the running-kernel source; disable the file parsers.
+	opts.DisabledAnalyzers = append(opts.DisabledAnalyzers, analyzer.KernelDetectorTypes...)
 	if release, err := kernel.Running(); err == nil {
 		r.runningKernelRelease = release
 	}
