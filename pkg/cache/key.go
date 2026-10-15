@@ -23,16 +23,20 @@ func CalcKey(id string, artifactVersion int, analyzerVersions analyzer.Versions,
 
 	h := sha256.New()
 
-	// Write ID, analyzer/handler versions, skipped files/dirs and file patterns
+	// Write ID, analyzer/handler versions, skipped files/dirs and file patterns.
+	// RunningKernelRelease is included so a host kernel change between scans
+	// of the same artifact (e.g. clean git repo) invalidates the cached blob;
+	// otherwise the stale release would mis-label kernel packages.
 	keyBase := struct {
-		ID                string
-		ArtifactVersion   int `json:",omitzero"`
-		AnalyzerVersions  analyzer.Versions
-		HookVersions      map[string]int
-		SkipFiles         []string
-		SkipDirs          []string
-		FilePatterns      []string                `json:",omitempty"`
-		DetectionPriority types.DetectionPriority `json:",omitempty"`
+		ID                   string
+		ArtifactVersion      int `json:",omitzero"`
+		AnalyzerVersions     analyzer.Versions
+		HookVersions         map[string]int
+		SkipFiles            []string
+		SkipDirs             []string
+		FilePatterns         []string                `json:",omitempty"`
+		DetectionPriority    types.DetectionPriority `json:",omitempty"`
+		RunningKernelRelease string                  `json:",omitempty"`
 	}{
 		id,
 		artifactVersion,
@@ -42,6 +46,7 @@ func CalcKey(id string, artifactVersion int, analyzerVersions analyzer.Versions,
 		artifactOpt.WalkerOption.SkipDirs,
 		artifactOpt.FilePatterns,
 		artifactOpt.DetectionPriority,
+		artifactOpt.RunningKernelRelease,
 	}
 
 	if err := json.NewEncoder(h).Encode(keyBase); err != nil {

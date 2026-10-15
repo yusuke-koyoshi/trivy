@@ -48,6 +48,7 @@ message BlobInfo {
   string created_by = 15;
   common.BuildInfo build_info = 16;
   repeated common.CryptoAsset crypto_assets = 17;
+  string running_kernel_release = 18;
 }
 
 message PutBlobRequest {
