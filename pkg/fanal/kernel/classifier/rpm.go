@@ -1,6 +1,8 @@
 package classifier
 
 import (
+	"regexp"
+
 	"github.com/aquasecurity/trivy/pkg/fanal/types"
 	"github.com/aquasecurity/trivy/pkg/set"
 )
@@ -113,13 +115,37 @@ var rpmKernelPackageNames = set.New[string](
 	"kernel-uek-debug-modules-extra",
 )
 
+// rpmVersionedKernelPattern matches AL2023's kernel<X.Y>(-<subpkg>)? form
+// (e.g. kernel6.12, kernel6.18-modules-extra) introduced when Amazon
+// Linux 2023 started shipping multiple kernel majors as parallel package
+// families. New majors (kernel7.0, ...) are picked up automatically.
+//
+// The suffix list is a deliberate subset of kernel-runtime-bound
+// subpackages from the kernel SRPM: classifying these as kernel means
+// their CVEs participate in running-kernel suppression, so only
+// subpackages whose vulnerabilities are gated by the running kernel
+// belong here. The kernel SRPM also ships userspace siblings under the
+// same prefix (kernel6.x-libbpf*, kernel6.x-debuginfo) — those are NOT
+// included because libbpf bugs hit userspace regardless of which kernel
+// is booted, and debuginfo carries no executable code (consistent with
+// kernel-debuginfo's absence from rpmKernelPackageNames).
+//
+// AL2023's kernel6.x family does not follow Fedora's modular split, so
+// -core / -modules / -modules-core / etc. are not shipped and left out.
+// `-tools-devel` is the AL2023-specific name for what RHEL ships as
+// `-tools-libs-devel`.
+var rpmVersionedKernelPattern = regexp.MustCompile(
+	`^kernel\d+\.\d+` +
+		`(?:-(?:modules-extra|modules-extra-common|devel|headers|tools|tools-devel))?$`,
+)
+
 // classifyRPM identifies RHEL-family kernel packages and builds the
 // release as `<Version>-<Release>.<Arch>`.
 //
 // Epoch is excluded: `uname -r` carries no epoch, so the match holds even
 // when epoch is bumped (cf. Amazon Linux 2023 kernel epoch=1 transition).
 func classifyRPM(pkg types.Package) Result {
-	if !rpmKernelPackageNames.Contains(pkg.Name) {
+	if !rpmKernelPackageNames.Contains(pkg.Name) && !rpmVersionedKernelPattern.MatchString(pkg.Name) {
 		return Result{}
 	}
 	if pkg.Version == "" || pkg.Release == "" || pkg.Arch == "" {
