@@ -107,6 +107,22 @@ func TestClassify_Debian(t *testing.T) {
 			family: types.Ubuntu,
 			want:   Result{},
 		},
+		// "hwe" sits in the flavor position but is a source-series name;
+		// its binaries boot as -generic/-lowlatency, so the package must
+		// prefix-match instead of reconstructing a nonexistent
+		// "<release>-hwe" uname.
+		{
+			name:   "Ubuntu rolling-HWE shared headers prefix-match",
+			pkg:    types.Package{Name: "linux-hwe-5.15-headers-5.15.0-92"},
+			family: types.Ubuntu,
+			want:   Result{IsKernel: true, Release: "5.15.0-92", BaseRelease: true},
+		},
+		{
+			name:   "Ubuntu rolling-HWE shared tools prefix-match",
+			pkg:    types.Package{Name: "linux-hwe-5.15-tools-5.15.0-92"},
+			family: types.Ubuntu,
+			want:   Result{IsKernel: true, Release: "5.15.0-92", BaseRelease: true},
+		},
 		{
 			name:   "Ubuntu HWE with non-digit release rejected",
 			pkg:    types.Package{Name: "linux-oracle-6.17-headers-something"},
@@ -143,6 +159,22 @@ func TestClassify_Debian(t *testing.T) {
 			pkg:    types.Package{Name: "linux-headers-5.15.0-92"},
 			family: types.Ubuntu,
 			want:   Result{IsKernel: true, Release: "5.15.0-92", BaseRelease: true},
+		},
+		// Debian digit-named flavors (686, 686-pae) must stay flavor-bound:
+		// the version-only heuristic must not turn "6.1.0-18-686" into a
+		// prefix matcher, or the running -686 kernel could never match
+		// itself while cross-matching -686-pae.
+		{
+			name:   "Debian digit-named flavor stays flavor-bound",
+			pkg:    types.Package{Name: "linux-image-6.1.0-18-686"},
+			family: types.Debian,
+			want:   Result{IsKernel: true, Release: "6.1.0-18-686"},
+		},
+		{
+			name:   "Debian digit-named flavor with suffix stays flavor-bound",
+			pkg:    types.Package{Name: "linux-headers-6.1.0-18-686-pae"},
+			family: types.Debian,
+			want:   Result{IsKernel: true, Release: "6.1.0-18-686-pae"},
 		},
 	}
 	for _, tc := range cases {
@@ -220,6 +252,52 @@ func TestClassify_RPM(t *testing.T) {
 			family: types.Amazon,
 			want:   Result{},
 		},
+		// Single-instance siblings from the kernel SRPM are upgraded in
+		// place (not install-only): stale versions never accumulate, and
+		// their content stays live regardless of which kernel is booted,
+		// so they must not carry a KernelActive label at all.
+		{
+			name:   "kernel-doc (single-instance) not classified",
+			pkg:    types.Package{Name: "kernel-doc", Version: "6.12.0", Release: "55.29.1.el10_0", Arch: "noarch"},
+			family: types.RedHat,
+			want:   Result{},
+		},
+		{
+			name:   "kernel-abi-stablelists (single-instance) not classified",
+			pkg:    types.Package{Name: "kernel-abi-stablelists", Version: "5.14.0", Release: "503.el9", Arch: "noarch"},
+			family: types.RedHat,
+			want:   Result{},
+		},
+		{
+			name:   "kernel-headers (single-instance) not classified",
+			pkg:    types.Package{Name: "kernel-headers", Version: "6.12.0", Release: "124.13.1.el10_1", Arch: "x86_64"},
+			family: types.RedHat,
+			want:   Result{},
+		},
+		{
+			name:   "kernel-tools (single-instance userspace) not classified",
+			pkg:    types.Package{Name: "kernel-tools", Version: "6.12.0", Release: "124.13.1.el10_1", Arch: "x86_64"},
+			family: types.RedHat,
+			want:   Result{},
+		},
+		{
+			name:   "kernel-firmware (live regardless of booted kernel) not classified",
+			pkg:    types.Package{Name: "kernel-firmware", Version: "2.6.32", Release: "754.el6", Arch: "noarch"},
+			family: types.RedHat,
+			want:   Result{},
+		},
+		{
+			name:   "kernel-uek-firmware not classified",
+			pkg:    types.Package{Name: "kernel-uek-firmware", Version: "5.4.17", Release: "2136.338.4.2.el7uek", Arch: "noarch"},
+			family: types.Oracle,
+			want:   Result{},
+		},
+		{
+			name:   "kernel-uek-tools not classified",
+			pkg:    types.Package{Name: "kernel-uek-tools", Version: "5.4.17", Release: "2136.338.4.2.el7uek", Arch: "x86_64"},
+			family: types.Oracle,
+			want:   Result{},
+		},
 		{
 			// AL2023 started shipping kernel majors with the version in the
 			// package name once kernel6.12 and kernel6.18 lived side-by-side.
@@ -254,12 +332,12 @@ func TestClassify_RPM(t *testing.T) {
 			want:   Result{IsKernel: true, Release: "6.12.35-55.103.amzn2023.x86_64"},
 		},
 		{
-			// AL2023-specific suffix; RHEL ships kernel-tools-libs-devel
-			// instead of -tools-devel.
-			name:   "AL2023 kernel6.12-tools-devel",
+			// Single-instance userspace sibling: upgraded in place and live
+			// regardless of the booted kernel, so no KernelActive label.
+			name:   "AL2023 kernel6.12-tools-devel not classified",
 			pkg:    types.Package{Name: "kernel6.12-tools-devel", Version: "6.12.35", Release: "55.103.amzn2023", Arch: "x86_64"},
 			family: types.Amazon,
-			want:   Result{IsKernel: true, Release: "6.12.35-55.103.amzn2023.x86_64"},
+			want:   Result{},
 		},
 		{
 			// kernel6.x-libbpf-* are shipped from the kernel SRPM but libbpf
@@ -364,6 +442,68 @@ func TestClassify_Alpine(t *testing.T) {
 			got := Classify(tc.pkg, types.Alpine)
 			if got != tc.want {
 				t.Errorf("Classify(%q, Alpine) = %+v; want %+v", tc.pkg.Name, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestResult_Matches(t *testing.T) {
+	cases := []struct {
+		name    string
+		r       Result
+		running string
+		want    bool
+	}{
+		{
+			name:    "flavor-bound equality",
+			r:       Result{IsKernel: true, Release: "5.15.0-92-generic"},
+			running: "5.15.0-92-generic",
+			want:    true,
+		},
+		{
+			// A digit-named flavor must not cross-match its hyphen-extended
+			// sibling (686 vs 686-pae).
+			name:    "flavor-bound rejects extended flavor",
+			r:       Result{IsKernel: true, Release: "6.1.0-18-686"},
+			running: "6.1.0-18-686-pae",
+			want:    false,
+		},
+		{
+			name:    "digit-named flavor self-match",
+			r:       Result{IsKernel: true, Release: "6.1.0-18-686"},
+			running: "6.1.0-18-686",
+			want:    true,
+		},
+		{
+			name:    "base release prefix-matches any flavor",
+			r:       Result{IsKernel: true, Release: "5.15.0-92", BaseRelease: true},
+			running: "5.15.0-92-generic",
+			want:    true,
+		},
+		{
+			// The separator is part of the prefix: ABI 9 must not match 92.
+			name:    "base release rejects ABI prefix collision",
+			r:       Result{IsKernel: true, Release: "5.15.0-9", BaseRelease: true},
+			running: "5.15.0-92-generic",
+			want:    false,
+		},
+		{
+			name:    "non-kernel never matches",
+			r:       Result{Release: "5.15.0-92-generic"},
+			running: "5.15.0-92-generic",
+			want:    false,
+		},
+		{
+			name:    "empty release never matches",
+			r:       Result{IsKernel: true},
+			running: "5.15.0-92-generic",
+			want:    false,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := tc.r.Matches(tc.running); got != tc.want {
+				t.Errorf("%+v.Matches(%q) = %v; want %v", tc.r, tc.running, got, tc.want)
 			}
 		})
 	}

@@ -2,7 +2,6 @@ package classifier
 
 import (
 	"regexp"
-	"strconv"
 	"strings"
 
 	"github.com/aquasecurity/trivy/pkg/fanal/types"
@@ -37,6 +36,14 @@ var (
 	debianReleaseIndex = debianKernelPackagePattern.SubexpIndex("release")
 )
 
+// debianVersionOnlyRelease matches the Ubuntu shared-package release shape
+// "<version>-<ABI>" (e.g. "5.15.0-92"). The shape must be exact: a looser
+// "ends in digits" test would also catch Debian's digit-named flavors
+// ("6.1.0-18-686"), turning a flavor-bound package into a prefix matcher
+// that cross-matches -686-pae and stops the running -686 kernel from
+// matching itself.
+var debianVersionOnlyRelease = regexp.MustCompile(`^\d+(?:\.\d+)+-\d+$`)
+
 func classifyDebian(pkg types.Package) Result {
 	// Prefix gate skips the regex for the many dpkg names that can't match
 	// (libc6, bash, python3-*). Mirrors classifyAlpine/classifySUSE.
@@ -60,16 +67,21 @@ func classifyDebian(pkg types.Package) Result {
 				BaseRelease: true,
 			}
 		}
-		// Ubuntu shared-headers: no flavor suffix, release ends with the
-		// build number (e.g. "5.15.0-92"). Running always has a trailing
-		// `-<flavor>`, so prefix-match too.
-		if i := strings.LastIndex(release, "-"); i >= 0 {
-			if _, err := strconv.Atoi(release[i+1:]); err == nil {
-				return Result{IsKernel: true, Release: release, BaseRelease: true}
-			}
+		// Ubuntu shared-headers: no flavor suffix, just "<version>-<ABI>"
+		// (e.g. "5.15.0-92"). Running always has a trailing `-<flavor>`,
+		// so prefix-match too.
+		if debianVersionOnlyRelease.MatchString(release) {
+			return Result{IsKernel: true, Release: release, BaseRelease: true}
 		}
 		// Standard flavor-bound form: release suffix already matches `uname -r`.
 		return Result{IsKernel: true, Release: release}
+	}
+	// "hwe" in the flavor position is the rolling-HWE source-series name,
+	// not a boot flavor: its binaries boot as -generic/-lowlatency, so a
+	// rebuilt "<release>-hwe" never equals `uname -r`. Treat these shared
+	// packages as base-release and prefix-match instead.
+	if flavor == "hwe" {
+		return Result{IsKernel: true, Release: release, BaseRelease: true}
 	}
 	// HWE form: rebuild as <release>-<flavor> to match `uname -r`.
 	return Result{IsKernel: true, Release: release + "-" + flavor}

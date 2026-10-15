@@ -20,6 +20,19 @@ import (
 //     NOT kernels (kernel-srpm-macros, kernel-rpm-macros,
 //     kernel-livepatch-repo-s3) — a false-negative, the worse direction.
 //
+// Only install-only packages (dnf/yum installonlypkgs: per-kernel copies
+// accumulate side by side) are listed. Single-instance siblings from the
+// kernel SRPM — kernel-tools*, kernel-headers, kernel-cross-headers,
+// kernel-doc, kernel-abi-stablelists/whitelists, kernel-firmware,
+// kernel-bootwrapper and their UEK equivalents — never get KernelActive:
+// they are upgraded in place, so stale versions never accumulate (nothing
+// to suppress), and their content (userspace binaries, firmware blobs)
+// stays live no matter which kernel is booted, so an active/inactive
+// label keyed on `uname -r` is meaningless and a mismatch — routine when
+// they lag the kernel update — would suppress live CVEs.
+// kernel-uek-container(-debug) is excluded for the same reason: it boots
+// container VMs regardless of the host's running kernel.
+//
 // Trade-off: new kernel variants need a manual update. Intentional.
 var rpmKernelPackageNames = set.New[string](
 	// generic
@@ -31,19 +44,9 @@ var rpmKernelPackageNames = set.New[string](
 	"kernel-modules-internal",
 	"kernel-modules-partner",
 	"kernel-devel",
-	"kernel-doc",
-	"kernel-firmware",
-	"kernel-headers",
-	"kernel-tools",
-	"kernel-tools-libs",
-	"kernel-tools-libs-devel",
 	"kernel-aarch64",
-	"kernel-bootwrapper",
-	"kernel-cross-headers",
 	"kernel-uki-virt",
 	"kernel-debug-uki-virt",
-	"kernel-abi-stablelists",
-	"kernel-abi-whitelists",
 	// debug
 	"kernel-debug",
 	"kernel-debug-core",
@@ -95,19 +98,11 @@ var rpmKernelPackageNames = set.New[string](
 	"kernel-PAE-devel",
 	// Oracle UEK
 	"kernel-uek",
-	"kernel-uek-container",
-	"kernel-uek-container-debug",
 	"kernel-uek-core",
 	"kernel-uek-devel",
-	"kernel-uek-doc",
-	"kernel-uek-firmware",
-	"kernel-uek-headers",
 	"kernel-uek-modules",
 	"kernel-uek-modules-extra",
 	"kernel-uek-modules-internal",
-	"kernel-uek-tools",
-	"kernel-uek-tools-libs",
-	"kernel-uek-tools-libs-devel",
 	"kernel-uek-debug",
 	"kernel-uek-debug-core",
 	"kernel-uek-debug-devel",
@@ -120,23 +115,18 @@ var rpmKernelPackageNames = set.New[string](
 // Linux 2023 started shipping multiple kernel majors as parallel package
 // families. New majors (kernel7.0, ...) are picked up automatically.
 //
-// The suffix list is a deliberate subset of kernel-runtime-bound
-// subpackages from the kernel SRPM: classifying these as kernel means
-// their CVEs participate in running-kernel suppression, so only
-// subpackages whose vulnerabilities are gated by the running kernel
-// belong here. The kernel SRPM also ships userspace siblings under the
-// same prefix (kernel6.x-libbpf*, kernel6.x-debuginfo) — those are NOT
-// included because libbpf bugs hit userspace regardless of which kernel
-// is booted, and debuginfo carries no executable code (consistent with
-// kernel-debuginfo's absence from rpmKernelPackageNames).
+// The suffix list mirrors the allow-list criterion above: only
+// install-only subpackages whose per-kernel copies accumulate. The kernel
+// SRPM's single-instance siblings (kernel6.x-headers, kernel6.x-tools*)
+// and userspace siblings (kernel6.x-libbpf*, kernel6.x-debuginfo) are NOT
+// included — their content is live regardless of which kernel is booted,
+// so labeling them inactive would suppress live CVEs.
 //
 // AL2023's kernel6.x family does not follow Fedora's modular split, so
 // -core / -modules / -modules-core / etc. are not shipped and left out.
-// `-tools-devel` is the AL2023-specific name for what RHEL ships as
-// `-tools-libs-devel`.
 var rpmVersionedKernelPattern = regexp.MustCompile(
 	`^kernel\d+\.\d+` +
-		`(?:-(?:modules-extra|modules-extra-common|devel|headers|tools|tools-devel))?$`,
+		`(?:-(?:modules-extra|modules-extra-common|devel))?$`,
 )
 
 // classifyRPM identifies RHEL-family kernel packages and builds the
@@ -146,6 +136,13 @@ var rpmVersionedKernelPattern = regexp.MustCompile(
 // when epoch is bumped (cf. Amazon Linux 2023 kernel epoch=1 transition).
 func classifyRPM(pkg types.Package) Result {
 	if !rpmKernelPackageNames.Contains(pkg.Name) && !rpmVersionedKernelPattern.MatchString(pkg.Name) {
+		return Result{}
+	}
+	// noarch means arch-independent content built once per SRPM — by
+	// construction not an install-only per-kernel payload, so it falls
+	// outside KernelActive labeling even if a future allow-list entry or
+	// versioned-pattern subpackage ships as noarch.
+	if pkg.Arch == "noarch" {
 		return Result{}
 	}
 	if pkg.Version == "" || pkg.Release == "" || pkg.Arch == "" {
