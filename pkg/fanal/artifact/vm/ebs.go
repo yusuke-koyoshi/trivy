@@ -21,6 +21,10 @@ const storageEBSCacheSize = 128
 
 const ebsArtifactVersion = 0
 
+// maxConcurrentEBSBlocks caps the GetSnapshotBlock requests in flight per scan.
+// With about 90 ms per request, 8 allows up to about 90 requests per second.
+const maxConcurrentEBSBlocks = 8
+
 // EBS represents an artifact for AWS EBS snapshots
 type EBS struct {
 	Storage
@@ -86,7 +90,9 @@ func (a *EBS) openEBS(ctx context.Context) (*io.SectionReader, error) {
 		return nil, xerrors.Errorf("lru cache error: %w", err)
 	}
 
-	r, err := ebsfile.Open(a.snapshotID, ctx, c, a.ebs)
+	r, err := ebsfile.OpenWithOptions(a.snapshotID, ctx, c, a.ebs, ebsfile.OpenOptions{
+		MaxConcurrentBlocks: maxConcurrentEBSBlocks,
+	})
 	if err != nil {
 		return nil, xerrors.Errorf("EBS error: %w", err)
 	}
