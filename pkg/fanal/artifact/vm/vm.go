@@ -2,9 +2,11 @@ package vm
 
 import (
 	"context"
+	"errors"
 	"io"
 	"os"
 	"strings"
+	"sync"
 
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/xerrors"
@@ -102,6 +104,11 @@ func (a *Storage) Analyze(ctx context.Context, r *io.SectionReader) (types.BlobI
 		FileChecksum: a.artifactOption.FileChecksum,
 	}
 
+	// The walker logs a failed partition and moves on, so a read that failed
+	// would otherwise leave an incomplete result that gets cached.
+	reader := &readErrorRecorder{r: r}
+	r = io.NewSectionReader(reader, 0, r.Size())
+
 	// Prepare filesystem for post analysis
 	composite, err := a.analyzer.PostAnalyzerFS()
 	if err != nil {
@@ -144,6 +151,9 @@ func (a *Storage) Analyze(ctx context.Context, r *io.SectionReader) (types.BlobI
 	if walkErr != nil {
 		return types.BlobInfo{}, xerrors.Errorf("walk vm error: %w", walkErr)
 	}
+	if err = reader.Err(); err != nil {
+		return types.BlobInfo{}, xerrors.Errorf("disk read error: %w", err)
+	}
 
 	// Post-analysis
 	if err = a.analyzer.PostAnalyze(ctx, composite, result, opts); err != nil {
@@ -175,6 +185,32 @@ func (a *Storage) Analyze(ctx context.Context, r *io.SectionReader) (types.BlobI
 	}
 
 	return blobInfo, nil
+}
+
+// readErrorRecorder keeps the first error a read returns other than io.EOF,
+// which reads past the end of a partition or the disk return normally.
+type readErrorRecorder struct {
+	r   io.ReaderAt
+	mu  sync.Mutex
+	err error
+}
+
+func (r *readErrorRecorder) ReadAt(p []byte, off int64) (int, error) {
+	n, err := r.r.ReadAt(p, off)
+	if err != nil && !errors.Is(err, io.EOF) {
+		r.mu.Lock()
+		if r.err == nil {
+			r.err = err
+		}
+		r.mu.Unlock()
+	}
+	return n, err
+}
+
+func (r *readErrorRecorder) Err() error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.err
 }
 
 func detectType(target string) Type {

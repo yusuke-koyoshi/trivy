@@ -25,6 +25,7 @@ import (
 	"github.com/aquasecurity/trivy/pkg/cache"
 	"github.com/aquasecurity/trivy/pkg/fanal/artifact"
 	"github.com/aquasecurity/trivy/pkg/fanal/artifact/vm"
+	"github.com/aquasecurity/trivy/pkg/fanal/walker"
 	"github.com/aquasecurity/trivy/pkg/log"
 )
 
@@ -36,6 +37,8 @@ type fakeAzure struct {
 	uniqueIDs []string
 	diskState armcompute.DiskState
 	getErr    bool
+	// failReads answers every range read with 404, which is not retried.
+	failReads bool
 
 	gets    atomic.Int64
 	grants  atomic.Int64
@@ -52,6 +55,8 @@ func (f *fakeAzure) transport(t *testing.T) policy.Transporter {
 		case r.URL.Query().Get("comp") == "pagelist":
 			w.Header().Set("Content-Type", "application/xml")
 			_, _ = io.WriteString(w, `<?xml version="1.0" encoding="utf-8"?><PageList />`)
+		case f.failReads:
+			http.Error(w, "not found", http.StatusNotFound)
 		default:
 			var start, end int
 			if _, err := fmt.Sscanf(r.Header.Get("x-ms-range"), "bytes=%d-%d", &start, &end); err != nil {
@@ -116,9 +121,21 @@ func (r *hostRouter) Do(req *http.Request) (*http.Response, error) {
 	return http.DefaultTransport.RoundTrip(req)
 }
 
+// readingWalker reads the disk once and, like the VM walker with a failed
+// partition, carries on whatever the read returns.
+type readingWalker struct {
+	mockWalker
+}
+
+func (w *readingWalker) Walk(r *io.SectionReader, root string, opt walker.Option, fn walker.WalkFunc) error {
+	_, _ = r.ReadAt(make([]byte, 512), 0)
+	return w.mockWalker.Walk(r, root, opt, fn)
+}
+
 func inspectAzure(t *testing.T, c cache.ArtifactCache, f *fakeAzure) (artifact.Reference, string, error) {
 	t.Helper()
-	a, err := vm.NewArtifact(vm.TypeAzure.Prefix()+azureSnapshotID, c, &mockWalker{root: "testdata/alpine"}, artifact.Option{})
+	w := &readingWalker{mockWalker{root: "testdata/alpine"}}
+	a, err := vm.NewArtifact(vm.TypeAzure.Prefix()+azureSnapshotID, c, w, artifact.Option{})
 	require.NoError(t, err)
 	azure, ok := a.(*vm.Azure)
 	require.True(t, ok)
@@ -170,6 +187,15 @@ func TestAzure_Inspect(t *testing.T) {
 		_, _, err := inspectAzure(t, c, f)
 		require.ErrorContains(t, err, "was recreated during the scan")
 		assert.Equal(t, int64(1), f.revokes.Load(), "the SAS is revoked on failure")
+		cachetest.AssertBlobs(t, c, nil)
+	})
+
+	t.Run("disk read fails", func(t *testing.T) {
+		c := cachetest.NewCache(t, nil)
+		f := &fakeAzure{uniqueIDs: []string{"uid-1"}, failReads: true}
+		_, _, err := inspectAzure(t, c, f)
+		require.ErrorContains(t, err, "disk read error")
+		assert.Equal(t, int64(1), f.revokes.Load())
 		cachetest.AssertBlobs(t, c, nil)
 	})
 
