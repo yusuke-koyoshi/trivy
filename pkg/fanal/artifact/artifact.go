@@ -4,6 +4,7 @@ import (
 	"context"
 	"slices"
 	"sort"
+	"time"
 
 	"github.com/google/go-containerregistry/pkg/v1"
 
@@ -30,6 +31,7 @@ type Option struct {
 	RekorURL          string
 	AWSRegion         string
 	AWSEndpoint       string
+	AzureSASDuration  time.Duration
 	FileChecksum      bool // For SPDX
 	DetectionPriority types.DetectionPriority
 

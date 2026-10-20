@@ -669,6 +669,7 @@ func (r *runner) initScannerConfig(ctx context.Context, opts flag.Options) (Scan
 			RekorURL:             opts.RekorURL,
 			AWSRegion:            opts.Region,
 			AWSEndpoint:          opts.Endpoint,
+			AzureSASDuration:     opts.SASDuration,
 			FileChecksum:         fileChecksum,
 			DetectionPriority:    opts.DetectionPriority,
 			MavenMirrors:         opts.MavenMirrors,

@@ -2,9 +2,11 @@ package vm
 
 import (
 	"context"
+	"errors"
 	"io"
 	"os"
 	"strings"
+	"sync"
 
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/xerrors"
@@ -25,9 +27,10 @@ func (t Type) Prefix() string {
 }
 
 const (
-	TypeAMI  Type = "ami"
-	TypeEBS  Type = "ebs"
-	TypeFile Type = "file"
+	TypeAMI   Type = "ami"
+	TypeEBS   Type = "ebs"
+	TypeAzure Type = "azure"
+	TypeFile  Type = "file"
 )
 
 var _ Walker = (*walker.VM)(nil)
@@ -66,6 +69,13 @@ func NewArtifact(target string, c cache.ArtifactCache, w Walker, opt artifact.Op
 			return nil, xerrors.Errorf("new EBS error: %w", err)
 		}
 		return e, nil
+	case TypeAzure:
+		target = strings.TrimPrefix(target, TypeAzure.Prefix())
+		a, err := newAzure(target, storage, opt.AzureSASDuration)
+		if err != nil {
+			return nil, xerrors.Errorf("new Azure error: %w", err)
+		}
+		return a, nil
 	case TypeFile:
 		target = strings.TrimPrefix(target, TypeFile.Prefix())
 		return newFile(target, storage)
@@ -93,6 +103,11 @@ func (a *Storage) Analyze(ctx context.Context, r *io.SectionReader) (types.BlobI
 		Offline:      a.artifactOption.Offline,
 		FileChecksum: a.artifactOption.FileChecksum,
 	}
+
+	// The walker logs a failed partition and moves on, so a read that failed
+	// would otherwise leave an incomplete result that gets cached.
+	reader := &readErrorRecorder{r: r}
+	r = io.NewSectionReader(reader, 0, r.Size())
 
 	// Prepare filesystem for post analysis
 	composite, err := a.analyzer.PostAnalyzerFS()
@@ -136,6 +151,9 @@ func (a *Storage) Analyze(ctx context.Context, r *io.SectionReader) (types.BlobI
 	if walkErr != nil {
 		return types.BlobInfo{}, xerrors.Errorf("walk vm error: %w", walkErr)
 	}
+	if err = reader.Err(); err != nil {
+		return types.BlobInfo{}, xerrors.Errorf("disk read error: %w", err)
+	}
 
 	// Post-analysis
 	if err = a.analyzer.PostAnalyze(ctx, composite, result, opts); err != nil {
@@ -169,12 +187,40 @@ func (a *Storage) Analyze(ctx context.Context, r *io.SectionReader) (types.BlobI
 	return blobInfo, nil
 }
 
+// readErrorRecorder keeps the first error a read returns other than io.EOF,
+// which reads past the end of a partition or the disk return normally.
+type readErrorRecorder struct {
+	r   io.ReaderAt
+	mu  sync.Mutex
+	err error
+}
+
+func (r *readErrorRecorder) ReadAt(p []byte, off int64) (int, error) {
+	n, err := r.r.ReadAt(p, off)
+	if err != nil && !errors.Is(err, io.EOF) {
+		r.mu.Lock()
+		if r.err == nil {
+			r.err = err
+		}
+		r.mu.Unlock()
+	}
+	return n, err
+}
+
+func (r *readErrorRecorder) Err() error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.err
+}
+
 func detectType(target string) Type {
 	switch {
 	case strings.HasPrefix(target, TypeAMI.Prefix()):
 		return TypeAMI
 	case strings.HasPrefix(target, TypeEBS.Prefix()):
 		return TypeEBS
+	case strings.HasPrefix(target, TypeAzure.Prefix()):
+		return TypeAzure
 	case strings.HasPrefix(target, TypeFile.Prefix()):
 		return TypeFile
 	default:

@@ -15,6 +15,9 @@ trivy vm [flags] VM_IMAGE
   # Scan your AWS EBS snapshot
   $ trivy vm ebs:${your_ebs_snapshot_id}
 
+  # Scan your Azure managed disk snapshot
+  $ trivy vm azure:/subscriptions/${subscription_id}/resourceGroups/${resource_group}/providers/Microsoft.Compute/snapshots/${snapshot_name}
+
 ```
 
 ### Options
@@ -24,6 +27,7 @@ trivy vm [flags] VM_IMAGE
       --ansible-inventory strings         specify inventory host path or a comma-separated host list
       --ansible-playbook strings          specify playbook file path(s) to scan
       --aws-region string                 AWS region to scan
+      --azure-sas-duration duration       lifetime of the read SAS granted for an Azure snapshot, which must outlast the scan (default 1h0m0s)
       --cache-backend string              [EXPERIMENTAL] cache backend (e.g. redis://localhost:6379) (default "fs")
       --cache-ttl duration                cache TTL when using Redis as cache backend
       --checks-bundle-repository string   OCI registry URL to retrieve checks bundle from (default "mirror.gcr.io/aquasec/trivy-checks:2")
