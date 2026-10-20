@@ -164,6 +164,11 @@ func TestShouldSkip(t *testing.T) {
 			want: true,
 		},
 		{
+			name: "MBR extended partition (Linux) is skipped",
+			part: &mbr.Partition{Type: 0x85},
+			want: true,
+		},
+		{
 			name: "GPT swap partition is skipped",
 			part: &gpt.PartitionEntry{
 				PartitionTypeGUID: linuxSwapGUID,

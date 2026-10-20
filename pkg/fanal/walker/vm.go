@@ -221,8 +221,8 @@ func shouldSkip(partition types.Partition) bool {
 	case *gpt.PartitionEntry:
 		return p.Bootable() || p.PartitionTypeGUID == linuxSwapGUID
 	case *mbr.Partition:
-		// 0x82: Linux swap, 0x05/0x0F: Extended partition (container, no filesystem)
-		return p.Type == 0x82 || p.Type == 0x05 || p.Type == 0x0F
+		// 0x82: Linux swap, 0x05/0x0F/0x85: Extended partition (container, no filesystem)
+		return p.Type == 0x82 || p.Type == 0x05 || p.Type == 0x0F || p.Type == 0x85
 	}
 	return false
 }
