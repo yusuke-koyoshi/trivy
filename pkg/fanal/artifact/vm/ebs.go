@@ -4,6 +4,8 @@ import (
 	"context"
 	"io"
 
+	awsconfig "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/smithy-go/middleware"
 	lru "github.com/hashicorp/golang-lru/v2"
 	ebsfile "github.com/masahiro331/go-ebs-file"
 	"golang.org/x/xerrors"
@@ -31,23 +33,34 @@ type EBS struct {
 	logger     *log.Logger
 	snapshotID string
 	ebs        ebsfile.EBSAPI
+	stats      *ebsAPIStats
 }
 
 func newEBS(snapshotID string, vm Storage, region, endpoint string) (*EBS, error) {
-	ebs, err := ebsfile.New(context.TODO(), config.MakeAWSOptions(region, endpoint)...)
+	logger := log.WithPrefix("ebs")
+	stats := newEBSAPIStats(logger)
+	options := append(config.MakeAWSOptions(region, endpoint),
+		awsconfig.WithAPIOptions([]func(*middleware.Stack) error{stats.apiOption}))
+
+	ebs, err := ebsfile.New(context.TODO(), options...)
 	if err != nil {
 		return nil, xerrors.Errorf("new ebsfile error: %w", err)
 	}
 
 	return &EBS{
 		Storage:    vm,
-		logger:     log.WithPrefix("ebs"),
+		logger:     logger,
 		snapshotID: snapshotID,
 		ebs:        ebs,
+		stats:      stats,
 	}, nil
 }
 
 func (a *EBS) Inspect(ctx context.Context) (artifact.Reference, error) {
+	// Deferred before openEBS so that a scan served from the cache still
+	// reports the ListSnapshotBlocks calls.
+	defer a.stats.logSummary()
+
 	sr, err := a.openEBS(ctx)
 	if err != nil {
 		return artifact.Reference{}, xerrors.Errorf("EBS open error: %w", err)
