@@ -25,9 +25,10 @@ func (t Type) Prefix() string {
 }
 
 const (
-	TypeAMI  Type = "ami"
-	TypeEBS  Type = "ebs"
-	TypeFile Type = "file"
+	TypeAMI   Type = "ami"
+	TypeEBS   Type = "ebs"
+	TypeAzure Type = "azure"
+	TypeFile  Type = "file"
 )
 
 var _ Walker = (*walker.VM)(nil)
@@ -66,6 +67,13 @@ func NewArtifact(target string, c cache.ArtifactCache, w Walker, opt artifact.Op
 			return nil, xerrors.Errorf("new EBS error: %w", err)
 		}
 		return e, nil
+	case TypeAzure:
+		target = strings.TrimPrefix(target, TypeAzure.Prefix())
+		a, err := newAzure(target, storage, opt.AzureSASDuration)
+		if err != nil {
+			return nil, xerrors.Errorf("new Azure error: %w", err)
+		}
+		return a, nil
 	case TypeFile:
 		target = strings.TrimPrefix(target, TypeFile.Prefix())
 		return newFile(target, storage)
@@ -175,6 +183,8 @@ func detectType(target string) Type {
 		return TypeAMI
 	case strings.HasPrefix(target, TypeEBS.Prefix()):
 		return TypeEBS
+	case strings.HasPrefix(target, TypeAzure.Prefix()):
+		return TypeAzure
 	case strings.HasPrefix(target, TypeFile.Prefix()):
 		return TypeFile
 	default:

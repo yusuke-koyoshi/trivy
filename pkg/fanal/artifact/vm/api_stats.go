@@ -24,6 +24,10 @@ type apiStats struct {
 	mu        sync.Mutex
 	attempts  map[string]int64
 	throttles map[string]int64
+	// reportServerErrors is off for the services that do not count server
+	// errors, which keeps their summary unchanged.
+	reportServerErrors bool
+	serverErrors       map[string]int64
 	// rateOp attempts by the Unix second they started in. Attempts finish out
 	// of order, so a single running counter would undercount.
 	perSec    map[int64]int64
@@ -32,17 +36,19 @@ type apiStats struct {
 
 func newAPIStats(logger *log.Logger, service, rateOp string) *apiStats {
 	return &apiStats{
-		logger:    logger,
-		service:   service,
-		rateOp:    rateOp,
-		attempts:  make(map[string]int64),
-		throttles: make(map[string]int64),
-		perSec:    make(map[int64]int64),
+		logger:       logger,
+		service:      service,
+		rateOp:       rateOp,
+		attempts:     make(map[string]int64),
+		throttles:    make(map[string]int64),
+		serverErrors: make(map[string]int64),
+		perSec:       make(map[int64]int64),
 	}
 }
 
 // record counts an attempt and warns on the first throttle of each operation.
-func (s *apiStats) record(op string, sec int64, throttled bool) {
+// attrs describe the response in that warning.
+func (s *apiStats) record(op string, sec int64, throttled bool, attrs ...any) {
 	s.mu.Lock()
 	s.attempts[op]++
 	if op == s.rateOp {
@@ -57,7 +63,20 @@ func (s *apiStats) record(op string, sec int64, throttled bool) {
 	s.mu.Unlock()
 
 	if firstThrottle {
-		s.logger.Warn(s.service+" API request throttled", log.String("operation", op))
+		s.logger.Warn(s.service+" API request throttled", append([]any{log.String("operation", op)}, attrs...)...)
+	}
+}
+
+// recordServerError counts a server error of an attempt already passed to
+// record, and warns on the first one of each operation.
+func (s *apiStats) recordServerError(op string, attrs ...any) {
+	s.mu.Lock()
+	s.serverErrors[op]++
+	first := s.serverErrors[op] == 1
+	s.mu.Unlock()
+
+	if first {
+		s.logger.Warn(s.service+" API server error", append([]any{log.String("operation", op)}, attrs...)...)
 	}
 }
 
@@ -76,6 +95,9 @@ func (s *apiStats) logSummary() {
 			log.Int64(key+"_attempts", s.attempts[op]),
 			log.Int64(key+"_throttles", s.throttles[op]),
 		)
+		if s.reportServerErrors {
+			attrs = append(attrs, log.Int64(key+"_server_errors", s.serverErrors[op]))
+		}
 		if op == s.rateOp {
 			attrs = append(attrs, log.Int64(key+"_max_attempts_per_second", s.maxPerSec))
 		}

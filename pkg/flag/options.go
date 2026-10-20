@@ -414,6 +414,7 @@ type Flags []FlagGroup
 type Options struct {
 	GlobalOptions
 	AWSOptions
+	AzureOptions
 	CacheOptions
 	CleanOptions
 	DBOptions
