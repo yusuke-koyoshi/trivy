@@ -30,9 +30,11 @@ require (
 	github.com/aws/aws-sdk-go-v2 v1.47.1
 	github.com/aws/aws-sdk-go-v2/config v1.33.6
 	github.com/aws/aws-sdk-go-v2/credentials v1.20.6
+	github.com/aws/aws-sdk-go-v2/service/ebs v1.22.1
 	github.com/aws/aws-sdk-go-v2/service/ec2 v1.338.1
 	github.com/aws/aws-sdk-go-v2/service/ecr v1.66.1
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.114.0
+	github.com/aws/smithy-go v1.28.1
 	github.com/bitnami/go-version v0.0.0-20231130084017-bb00604d650c
 	github.com/bmatcuk/doublestar/v4 v4.10.2
 	github.com/cenkalti/backoff/v6 v6.0.1
@@ -187,7 +189,6 @@ require (
 	github.com/aws/aws-sdk-go-v2/internal/configsources v1.5.4 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.8.4 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/v4a v1.5.4 // indirect
-	github.com/aws/aws-sdk-go-v2/service/ebs v1.22.1 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.19 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.11.5 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.14.4 // indirect
@@ -196,7 +197,6 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sso v1.38.1 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.43.1 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.51.1 // indirect
-	github.com/aws/smithy-go v1.28.1 // indirect
 	github.com/bgentry/go-netrc v0.0.0-20140422174119-9fd32a8b3d3d // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/briandowns/spinner v1.23.0 // indirect
@@ -487,12 +487,12 @@ tool (
 	sigs.k8s.io/kind
 )
 
-replace github.com/masahiro331/go-ext4-filesystem => github.com/yusuke-koyoshi/go-ext4-filesystem v0.0.0-20260425184122-3cf9d2f35b22
+replace github.com/masahiro331/go-ext4-filesystem => github.com/yusuke-koyoshi/go-ext4-filesystem v0.0.0-20261012153933-244792f5018a
 
-replace github.com/masahiro331/go-xfs-filesystem => github.com/yusuke-koyoshi/go-xfs-filesystem v0.0.0-20260429132402-9a1064e1f61e
+replace github.com/masahiro331/go-xfs-filesystem => github.com/yusuke-koyoshi/go-xfs-filesystem v0.0.0-20261012172023-6323af45a65d
 
-replace github.com/masahiro331/go-vmdk-parser => github.com/yusuke-koyoshi/go-vmdk-parser v0.0.0-20260425175348-040a3994f0b4
+replace github.com/masahiro331/go-vmdk-parser => github.com/yusuke-koyoshi/go-vmdk-parser v0.0.0-20261012143356-960c6090c46c
 
-replace github.com/masahiro331/go-disk => github.com/yusuke-koyoshi/go-disk v0.0.0-20260425192820-aa441f4ebb72
+replace github.com/masahiro331/go-disk => github.com/yusuke-koyoshi/go-disk v0.0.0-20261013082327-e1c55b580bac
 
-replace github.com/masahiro331/go-ebs-file => github.com/yusuke-koyoshi/go-ebs-file v0.0.0-20260422020928-9d24e29aac27
+replace github.com/masahiro331/go-ebs-file => github.com/yusuke-koyoshi/go-ebs-file v0.0.0-20261013133232-c97f3d8d4243

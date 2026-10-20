@@ -4,6 +4,8 @@ import (
 	"context"
 	"io"
 
+	awsconfig "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/smithy-go/middleware"
 	lru "github.com/hashicorp/golang-lru/v2"
 	ebsfile "github.com/masahiro331/go-ebs-file"
 	"golang.org/x/xerrors"
@@ -21,29 +23,44 @@ const storageEBSCacheSize = 128
 
 const ebsArtifactVersion = 0
 
+// maxConcurrentEBSBlocks caps the GetSnapshotBlock requests in flight per scan.
+// With about 90 ms per request, 8 allows up to about 90 requests per second.
+const maxConcurrentEBSBlocks = 8
+
 // EBS represents an artifact for AWS EBS snapshots
 type EBS struct {
 	Storage
 	logger     *log.Logger
 	snapshotID string
 	ebs        ebsfile.EBSAPI
+	stats      *ebsAPIStats
 }
 
 func newEBS(snapshotID string, vm Storage, region, endpoint string) (*EBS, error) {
-	ebs, err := ebsfile.New(context.TODO(), config.MakeAWSOptions(region, endpoint)...)
+	logger := log.WithPrefix("ebs")
+	stats := newEBSAPIStats(logger)
+	options := append(config.MakeAWSOptions(region, endpoint),
+		awsconfig.WithAPIOptions([]func(*middleware.Stack) error{stats.apiOption}))
+
+	ebs, err := ebsfile.New(context.TODO(), options...)
 	if err != nil {
 		return nil, xerrors.Errorf("new ebsfile error: %w", err)
 	}
 
 	return &EBS{
 		Storage:    vm,
-		logger:     log.WithPrefix("ebs"),
+		logger:     logger,
 		snapshotID: snapshotID,
 		ebs:        ebs,
+		stats:      stats,
 	}, nil
 }
 
 func (a *EBS) Inspect(ctx context.Context) (artifact.Reference, error) {
+	// Deferred before openEBS so that a scan served from the cache still
+	// reports the ListSnapshotBlocks calls.
+	defer a.stats.logSummary()
+
 	sr, err := a.openEBS(ctx)
 	if err != nil {
 		return artifact.Reference{}, xerrors.Errorf("EBS open error: %w", err)
@@ -86,7 +103,9 @@ func (a *EBS) openEBS(ctx context.Context) (*io.SectionReader, error) {
 		return nil, xerrors.Errorf("lru cache error: %w", err)
 	}
 
-	r, err := ebsfile.Open(a.snapshotID, ctx, c, a.ebs)
+	r, err := ebsfile.OpenWithOptions(a.snapshotID, ctx, c, a.ebs, ebsfile.OpenOptions{
+		MaxConcurrentBlocks: maxConcurrentEBSBlocks,
+	})
 	if err != nil {
 		return nil, xerrors.Errorf("EBS error: %w", err)
 	}
