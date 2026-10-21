@@ -4,6 +4,7 @@ import (
 	"context"
 	"slices"
 	"sort"
+	"time"
 
 	"github.com/google/go-containerregistry/pkg/v1"
 
@@ -30,6 +31,7 @@ type Option struct {
 	RekorURL          string
 	AWSRegion         string
 	AWSEndpoint       string
+	AzureSASDuration  time.Duration
 	FileChecksum      bool // For SPDX
 	DetectionPriority types.DetectionPriority
 
@@ -53,6 +55,13 @@ type Option struct {
 	LicenseScannerOption analyzer.LicenseScannerOption
 
 	WalkerOption walker.Option
+
+	// RunningKernelRelease is the running kernel release for the target,
+	// set by the CLI runner (e.g. `trivy rootfs` from the scanner host's
+	// uname -r). The artifact constructor copies it onto BlobInfo so the
+	// scan layer can label kernel packages against the running release.
+	// Other scan modes leave it empty.
+	RunningKernelRelease string
 }
 
 func (o *Option) AnalyzerOptions() analyzer.AnalyzerOptions {

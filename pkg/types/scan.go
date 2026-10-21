@@ -106,6 +106,12 @@ type ScanTarget struct {
 	Licenses          []types.LicenseFile
 	CryptoAssets      []types.CryptoAsset
 
+	// RunningKernelRelease is the kernel release the target is running,
+	// from ArtifactDetail.RunningKernelRelease (artifact constructor's
+	// rootfs syscall or running-kernel analyzers). Empty when no source
+	// applies; the labeler then leaves all kernel packages at Active=nil.
+	RunningKernelRelease string
+
 	// CustomResources hold analysis results from custom analyzers.
 	// It is for extensibility and not used in OSS.
 	CustomResources []types.CustomResource

@@ -23,6 +23,7 @@ import (
 	"github.com/aquasecurity/trivy/pkg/extension"
 	"github.com/aquasecurity/trivy/pkg/fanal/analyzer"
 	"github.com/aquasecurity/trivy/pkg/fanal/artifact"
+	"github.com/aquasecurity/trivy/pkg/fanal/kernel"
 	ftypes "github.com/aquasecurity/trivy/pkg/fanal/types"
 	"github.com/aquasecurity/trivy/pkg/fanal/walker"
 	"github.com/aquasecurity/trivy/pkg/flag"
@@ -101,6 +102,12 @@ type runner struct {
 	initializeScanService InitializeScanService
 	versionChecker        *notification.VersionChecker
 	dbOpen                bool
+
+	// runningKernelRelease holds the scanner host's uname -r, set by
+	// ScanRootfs and copied onto ArtifactOption.RunningKernelRelease in
+	// initScannerConfig. Empty for other ScanX entry points so the scanner
+	// kernel is never used as a stand-in for an offline target.
+	runningKernelRelease string
 
 	// WASM modules
 	module *module.Manager
@@ -200,6 +207,9 @@ func (r *runner) ScanImage(ctx context.Context, opts flag.Options) (types.Report
 	// Disable the lock file scanning
 	opts.DisabledAnalyzers = analyzer.TypeLockfiles
 
+	// Images share the host kernel, so skip the kernel detection analyzers.
+	opts.DisabledAnalyzers = append(opts.DisabledAnalyzers, analyzer.KernelDetectorTypes...)
+
 	var s InitializeScanService
 	switch {
 	case opts.Input != "" && opts.ServerAddr == "":
@@ -224,12 +234,21 @@ func (r *runner) ScanFilesystem(ctx context.Context, opts flag.Options) (types.R
 	opts.DisabledAnalyzers = append(opts.DisabledAnalyzers, analyzer.TypeIndividualPkgs...)
 	opts.DisabledAnalyzers = append(opts.DisabledAnalyzers, analyzer.TypeSBOM)
 
+	// `trivy fs` targets sources, not a kernel-bearing system, so skip the kernel detection analyzers.
+	opts.DisabledAnalyzers = append(opts.DisabledAnalyzers, analyzer.KernelDetectorTypes...)
+
 	return r.scanFS(ctx, opts)
 }
 
 func (r *runner) ScanRootfs(ctx context.Context, opts flag.Options) (types.Report, error) {
 	// Disable the lock file scanning
 	opts.DisabledAnalyzers = append(opts.DisabledAnalyzers, analyzer.TypeLockfiles...)
+
+	// Use the scanner host's `uname -r` as the running-kernel source; disable the file parsers.
+	opts.DisabledAnalyzers = append(opts.DisabledAnalyzers, analyzer.KernelDetectorTypes...)
+	if release, err := kernel.Running(); err == nil {
+		r.runningKernelRelease = release
+	}
 
 	return r.scanFS(ctx, opts)
 }
@@ -356,9 +375,11 @@ func (r *runner) initJavaDB(opts flag.Options) error {
 		return nil
 	}
 
-	// If vulnerability scanning and SBOM generation are disabled, it doesn't need to download the Java database.
+	// If vulnerability scanning, SBOM generation, and library package extraction are all disabled,
+	// it doesn't need to download the Java database.
 	if !opts.Scanners.Enabled(types.VulnerabilityScanner) &&
-		!slices.Contains(types.SupportedSBOMFormats, opts.Format) {
+		!slices.Contains(types.SupportedSBOMFormats, opts.Format) &&
+		!slices.Contains(opts.PkgTypes, types.PkgTypeLibrary) {
 		return nil
 	}
 
@@ -529,14 +550,6 @@ func disabledAnalyzers(opts flag.Options) []analyzer.Type {
 		analyzers = append(analyzers, analyzer.TypeLicenseFile)
 	}
 
-	// Parsing jar files requires Java-db client
-	// But we don't create client if vulnerability analysis is disabled and SBOM format is not used
-	// We need to disable jar analyzer to avoid errors
-	// TODO disable all languages that don't contain license information for this case
-	if !opts.Scanners.Enabled(types.VulnerabilityScanner) && !slices.Contains(types.SupportedSBOMFormats, opts.Format) {
-		analyzers = append(analyzers, analyzer.TypeJar)
-	}
-
 	// Do not perform misconfiguration scanning on container image config
 	// when it is not specified.
 	if !opts.ImageConfigScanners.Enabled(types.MisconfigScanner) {
@@ -642,23 +655,25 @@ func (r *runner) initScannerConfig(ctx context.Context, opts flag.Options) (Scan
 		RemoteCacheOptions: opts.RemoteCacheOpts(),
 		ServerOption:       opts.ClientScannerOpts(),
 		ArtifactOption: artifact.Option{
-			DisabledAnalyzers: disabledAnalyzers(opts),
-			DisabledHandlers:  disabledHandlers,
-			FilePatterns:      opts.FilePatterns,
-			Parallel:          opts.Parallel,
-			Offline:           opts.OfflineScan,
-			NoProgress:        opts.NoProgress || opts.Quiet,
-			Insecure:          opts.Insecure,
-			RepoBranch:        opts.RepoBranch,
-			RepoCommit:        opts.RepoCommit,
-			RepoTag:           opts.RepoTag,
-			SBOMSources:       opts.SBOMSources,
-			RekorURL:          opts.RekorURL,
-			AWSRegion:         opts.Region,
-			AWSEndpoint:       opts.Endpoint,
-			FileChecksum:      fileChecksum,
-			DetectionPriority: opts.DetectionPriority,
-			MavenMirrors:      opts.MavenMirrors,
+			DisabledAnalyzers:    disabledAnalyzers(opts),
+			DisabledHandlers:     disabledHandlers,
+			FilePatterns:         opts.FilePatterns,
+			Parallel:             opts.Parallel,
+			Offline:              opts.OfflineScan,
+			NoProgress:           opts.NoProgress || opts.Quiet,
+			Insecure:             opts.Insecure,
+			RepoBranch:           opts.RepoBranch,
+			RepoCommit:           opts.RepoCommit,
+			RepoTag:              opts.RepoTag,
+			SBOMSources:          opts.SBOMSources,
+			RekorURL:             opts.RekorURL,
+			AWSRegion:            opts.Region,
+			AWSEndpoint:          opts.Endpoint,
+			AzureSASDuration:     opts.SASDuration,
+			FileChecksum:         fileChecksum,
+			DetectionPriority:    opts.DetectionPriority,
+			MavenMirrors:         opts.MavenMirrors,
+			RunningKernelRelease: r.runningKernelRelease,
 
 			// For image scanning
 			ImageOption: ftypes.ImageOptions{

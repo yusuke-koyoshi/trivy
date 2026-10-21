@@ -285,3 +285,20 @@ func TestCalcKey(t *testing.T) {
 		})
 	}
 }
+
+// TestCalcKey_RunningKernelRelease keeps a host kernel change between scans
+// from being lost to a stale cached blob.
+func TestCalcKey_RunningKernelRelease(t *testing.T) {
+	const id = "sha256:5c534be56eca62e756ef2ef51523feda0f19cd7c15bb0c015e3d6e3ae090bf6e"
+
+	base, err := CalcKey(id, 1, analyzer.Versions{}, nil, artifact.Option{})
+	require.NoError(t, err)
+
+	withA, err := CalcKey(id, 1, analyzer.Versions{}, nil, artifact.Option{RunningKernelRelease: "6.1.0-amd64"})
+	require.NoError(t, err)
+	assert.NotEqual(t, base, withA, "empty vs set RunningKernelRelease must produce distinct keys")
+
+	withB, err := CalcKey(id, 1, analyzer.Versions{}, nil, artifact.Option{RunningKernelRelease: "5.15.0-92-generic"})
+	require.NoError(t, err)
+	assert.NotEqual(t, withA, withB, "different RunningKernelRelease values must produce distinct keys")
+}

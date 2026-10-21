@@ -112,16 +112,17 @@ func (s Service) Scan(ctx context.Context, targetName, artifactKey string, blobK
 	}
 
 	target := types.ScanTarget{
-		Name:              targetName,
-		OS:                detail.OS,
-		Repository:        lo.Ternary(lo.IsEmpty(options.Distro), detail.Repository, nil),
-		Packages:          mergePkgs(detail.Packages, detail.ImageConfig.Packages, options),
-		Applications:      detail.Applications,
-		Misconfigurations: mergeMisconfigurations(targetName, detail),
-		Secrets:           mergeSecrets(targetName, detail),
-		Licenses:          detail.Licenses,
-		CryptoAssets:      detail.CryptoAssets,
-		CustomResources:   detail.CustomResources,
+		Name:                 targetName,
+		OS:                   detail.OS,
+		Repository:           lo.Ternary(lo.IsEmpty(options.Distro), detail.Repository, nil),
+		Packages:             mergePkgs(detail.Packages, detail.ImageConfig.Packages, options),
+		Applications:         detail.Applications,
+		Misconfigurations:    mergeMisconfigurations(targetName, detail),
+		Secrets:              mergeSecrets(targetName, detail),
+		Licenses:             detail.Licenses,
+		CryptoAssets:         detail.CryptoAssets,
+		CustomResources:      detail.CustomResources,
+		RunningKernelRelease: detail.RunningKernelRelease,
 	}
 
 	results, os, err := s.ScanTarget(ctx, target, options)

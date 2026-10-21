@@ -81,6 +81,7 @@ func ConvertToRPCPkgs(pkgs []ftypes.Package) []*common.Package {
 			Modularitylabel: pkg.Modularitylabel,
 			BuildInfo:       ConvertToRPCBuildInfo(pkg.BuildInfo),
 			InstalledFiles:  pkg.InstalledFiles,
+			KernelActive:    pkg.KernelActive,
 		})
 	}
 	return rpcPkgs
@@ -357,6 +358,7 @@ func ConvertFromRPCPkgs(rpcPkgs []*common.Package) []ftypes.Package {
 			Modularitylabel: pkg.Modularitylabel,
 			BuildInfo:       ConvertFromRPCBuildInfo(pkg.BuildInfo),
 			InstalledFiles:  pkg.InstalledFiles,
+			KernelActive:    pkg.KernelActive,
 		})
 	}
 	return pkgs
@@ -1097,23 +1099,24 @@ func ConvertFromRPCPutArtifactRequest(req *cache.PutArtifactRequest) ftypes.Arti
 // ConvertFromRPCPutBlobRequest returns ftypes.BlobInfo
 func ConvertFromRPCPutBlobRequest(req *cache.PutBlobRequest) ftypes.BlobInfo {
 	return ftypes.BlobInfo{
-		SchemaVersion:     int(req.BlobInfo.SchemaVersion),
-		Size:              req.BlobInfo.Size,
-		Digest:            req.BlobInfo.Digest,
-		DiffID:            req.BlobInfo.DiffId,
-		OS:                ConvertFromRPCOS(req.BlobInfo.Os),
-		Repository:        ConvertFromRPCRepository(req.BlobInfo.Repository),
-		PackageInfos:      ConvertFromRPCPackageInfos(req.BlobInfo.PackageInfos),
-		Applications:      ConvertFromRPCApplications(req.BlobInfo.Applications),
-		Misconfigurations: ConvertFromRPCMisconfigurations(req.BlobInfo.Misconfigurations),
-		CustomResources:   ConvertFromRPCCustomResources(req.BlobInfo.CustomResources),
-		Secrets:           ConvertFromRPCSecrets(req.BlobInfo.Secrets),
-		Licenses:          ConvertFromRPCLicenseFiles(req.BlobInfo.Licenses),
-		CryptoAssets:      ConvertFromRPCCryptoAssets(req.BlobInfo.CryptoAssets),
-		CreatedBy:         req.BlobInfo.CreatedBy,
-		OpaqueDirs:        req.BlobInfo.OpaqueDirs,
-		WhiteoutFiles:     req.BlobInfo.WhiteoutFiles,
-		BuildInfo:         ConvertFromRPCBuildInfo(req.BlobInfo.BuildInfo),
+		SchemaVersion:        int(req.BlobInfo.SchemaVersion),
+		Size:                 req.BlobInfo.Size,
+		Digest:               req.BlobInfo.Digest,
+		DiffID:               req.BlobInfo.DiffId,
+		OS:                   ConvertFromRPCOS(req.BlobInfo.Os),
+		Repository:           ConvertFromRPCRepository(req.BlobInfo.Repository),
+		PackageInfos:         ConvertFromRPCPackageInfos(req.BlobInfo.PackageInfos),
+		Applications:         ConvertFromRPCApplications(req.BlobInfo.Applications),
+		Misconfigurations:    ConvertFromRPCMisconfigurations(req.BlobInfo.Misconfigurations),
+		CustomResources:      ConvertFromRPCCustomResources(req.BlobInfo.CustomResources),
+		Secrets:              ConvertFromRPCSecrets(req.BlobInfo.Secrets),
+		Licenses:             ConvertFromRPCLicenseFiles(req.BlobInfo.Licenses),
+		CryptoAssets:         ConvertFromRPCCryptoAssets(req.BlobInfo.CryptoAssets),
+		CreatedBy:            req.BlobInfo.CreatedBy,
+		OpaqueDirs:           req.BlobInfo.OpaqueDirs,
+		WhiteoutFiles:        req.BlobInfo.WhiteoutFiles,
+		BuildInfo:            ConvertFromRPCBuildInfo(req.BlobInfo.BuildInfo),
+		RunningKernelRelease: req.BlobInfo.RunningKernelRelease,
 	}
 }
 
@@ -1225,23 +1228,24 @@ func ConvertToRPCPutBlobRequest(diffID string, blobInfo ftypes.BlobInfo) *cache.
 	return &cache.PutBlobRequest{
 		DiffId: diffID,
 		BlobInfo: &cache.BlobInfo{
-			SchemaVersion:     ftypes.BlobJSONSchemaVersion,
-			Size:              blobInfo.Size,
-			Digest:            blobInfo.Digest,
-			DiffId:            blobInfo.DiffID,
-			Os:                ConvertToRPCOS(blobInfo.OS),
-			Repository:        ConvertToRPCRepository(blobInfo.Repository),
-			PackageInfos:      packageInfos,
-			Applications:      applications,
-			Misconfigurations: misconfigurations,
-			CustomResources:   customResources,
-			Secrets:           ConvertToRPCSecrets(blobInfo.Secrets),
-			Licenses:          ConvertToRPCLicenseFiles(blobInfo.Licenses),
-			CryptoAssets:      ConvertToRPCCryptoAssets(blobInfo.CryptoAssets),
-			CreatedBy:         blobInfo.CreatedBy,
-			OpaqueDirs:        blobInfo.OpaqueDirs,
-			WhiteoutFiles:     blobInfo.WhiteoutFiles,
-			BuildInfo:         ConvertToRPCBuildInfo(blobInfo.BuildInfo),
+			SchemaVersion:        ftypes.BlobJSONSchemaVersion,
+			Size:                 blobInfo.Size,
+			Digest:               blobInfo.Digest,
+			DiffId:               blobInfo.DiffID,
+			Os:                   ConvertToRPCOS(blobInfo.OS),
+			Repository:           ConvertToRPCRepository(blobInfo.Repository),
+			PackageInfos:         packageInfos,
+			Applications:         applications,
+			Misconfigurations:    misconfigurations,
+			CustomResources:      customResources,
+			Secrets:              ConvertToRPCSecrets(blobInfo.Secrets),
+			Licenses:             ConvertToRPCLicenseFiles(blobInfo.Licenses),
+			CryptoAssets:         ConvertToRPCCryptoAssets(blobInfo.CryptoAssets),
+			CreatedBy:            blobInfo.CreatedBy,
+			OpaqueDirs:           blobInfo.OpaqueDirs,
+			WhiteoutFiles:        blobInfo.WhiteoutFiles,
+			BuildInfo:            ConvertToRPCBuildInfo(blobInfo.BuildInfo),
+			RunningKernelRelease: blobInfo.RunningKernelRelease,
 		},
 	}
 }

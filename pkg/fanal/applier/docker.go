@@ -131,6 +131,11 @@ func ApplyLayers(layers []ftypes.BlobInfo) ftypes.ArtifactDetail {
 			mergedLayer.Repository = layer.Repository
 		}
 
+		// Last non-empty wins.
+		if layer.RunningKernelRelease != "" {
+			mergedLayer.RunningKernelRelease = layer.RunningKernelRelease
+		}
+
 		// Apply OS packages
 		for _, pkgInfo := range layer.PackageInfos {
 			key := fmt.Sprintf("%s/type:ospkg", pkgInfo.FilePath)

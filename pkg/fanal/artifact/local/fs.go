@@ -256,6 +256,12 @@ func (a Artifact) Inspect(ctx context.Context) (artifact.Reference, error) {
 		Licenses:          result.Licenses,
 		CustomResources:   result.CustomResources,
 
+		// Prefer the analyzer-supplied release (read inside the target rootfs,
+		// reflecting the target kernel) over the runner option (the scanner
+		// host's uname -r). `trivy rootfs` disables the analyzers and uses only
+		// the option; other modes disable both or rely on the analyzers alone.
+		RunningKernelRelease: lo.CoalesceOrEmpty(result.RunningKernelRelease, a.artifactOption.RunningKernelRelease),
+
 		// For Red Hat
 		BuildInfo: result.BuildInfo,
 	}

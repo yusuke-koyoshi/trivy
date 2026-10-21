@@ -76,6 +76,12 @@ func TestNewArtifact(t *testing.T) {
 			wantErr: assert.NoError,
 		},
 		{
+			// Taken as a file, the path would fail with "file open error".
+			name:    "happy path for Azure snapshot",
+			target:  "azure:/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg/providers/Microsoft.Compute/snapshots/snap",
+			wantErr: assert.NoError,
+		},
+		{
 			name:    "happy path for monolithic sparse vmdk format",
 			target:  "testdata/monolithicSparse.vmdk",
 			wantErr: assert.NoError,

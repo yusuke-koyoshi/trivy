@@ -1134,6 +1134,7 @@ func NewVMCommand(globalFlags *flag.GlobalFlagGroup) *cobra.Command {
 				Usage:      "AWS region to scan",
 			},
 		},
+		flag.NewAzureFlagGroup(),
 	}
 
 	cmd := &cobra.Command{
@@ -1146,6 +1147,9 @@ func NewVMCommand(globalFlags *flag.GlobalFlagGroup) *cobra.Command {
 
   # Scan your AWS EBS snapshot
   $ trivy vm ebs:${your_ebs_snapshot_id}
+
+  # Scan your Azure managed disk snapshot
+  $ trivy vm azure:/subscriptions/${subscription_id}/resourceGroups/${resource_group}/providers/Microsoft.Compute/snapshots/${snapshot_name}
 `,
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			if err := vmFlags.Bind(cmd); err != nil {
