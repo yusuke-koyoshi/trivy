@@ -491,12 +491,12 @@ tool (
 	sigs.k8s.io/kind
 )
 
-replace github.com/masahiro331/go-ext4-filesystem => github.com/yusuke-koyoshi/go-ext4-filesystem v0.0.0-20261012153933-244792f5018a
+replace github.com/masahiro331/go-ext4-filesystem => github.com/masahiro331/go-ext4-filesystem v0.0.0-20261019231617-81cc551ef742
 
-replace github.com/masahiro331/go-xfs-filesystem => github.com/yusuke-koyoshi/go-xfs-filesystem v0.0.0-20261012172023-6323af45a65d
+replace github.com/masahiro331/go-xfs-filesystem => github.com/yusuke-koyoshi/go-xfs-filesystem v0.0.0-20261021083939-39885741281a
 
-replace github.com/masahiro331/go-vmdk-parser => github.com/yusuke-koyoshi/go-vmdk-parser v0.0.0-20261012143356-960c6090c46c
+replace github.com/masahiro331/go-vmdk-parser => github.com/masahiro331/go-vmdk-parser v0.0.0-20261019230602-b5e948eded9e
 
-replace github.com/masahiro331/go-disk => github.com/yusuke-koyoshi/go-disk v0.0.0-20261013082327-e1c55b580bac
+replace github.com/masahiro331/go-disk => github.com/yusuke-koyoshi/go-disk v0.0.0-20261021111723-61fc583e0298
 
-replace github.com/masahiro331/go-ebs-file => github.com/yusuke-koyoshi/go-ebs-file v0.0.0-20261013133232-c97f3d8d4243
+replace github.com/masahiro331/go-ebs-file => github.com/yusuke-koyoshi/go-ebs-file v0.0.0-20261021114121-a9e6e603a3af
