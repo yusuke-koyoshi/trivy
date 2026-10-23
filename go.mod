@@ -497,6 +497,6 @@ replace github.com/masahiro331/go-xfs-filesystem => github.com/yusuke-koyoshi/go
 
 replace github.com/masahiro331/go-vmdk-parser => github.com/yusuke-koyoshi/go-vmdk-parser v0.0.0-20261012143356-960c6090c46c
 
-replace github.com/masahiro331/go-disk => github.com/yusuke-koyoshi/go-disk v0.0.0-20261013082327-e1c55b580bac
+replace github.com/masahiro331/go-disk => github.com/yusuke-koyoshi/go-disk v0.0.0-20261022183952-5ed7f84bec43
 
 replace github.com/masahiro331/go-ebs-file => github.com/yusuke-koyoshi/go-ebs-file v0.0.0-20261013133232-c97f3d8d4243

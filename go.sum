@@ -1026,8 +1026,8 @@ github.com/yusufpapurcu/wmi v1.2.4 h1:zFUKzehAFReQwLys1b/iSMl+JQGSCSjtVqQn9bBrPo
 github.com/yusufpapurcu/wmi v1.2.4/go.mod h1:SBZ9tNy3G9/m5Oi98Zks0QjeHVDvuK0qfxQmPyzfmi0=
 github.com/yusuke-koyoshi/go-azure-managed-disks-file v0.0.0-20261020154932-aa14556c7c13 h1:RJWV6c/LWxZ/xGWXYq6DNA0u6esA4yTvcg8f4zFh8i4=
 github.com/yusuke-koyoshi/go-azure-managed-disks-file v0.0.0-20261020154932-aa14556c7c13/go.mod h1:EsyTWlcByU/pTY4jkVwtxWLM2l6tecmPlzKQm14cVJk=
-github.com/yusuke-koyoshi/go-disk v0.0.0-20261013082327-e1c55b580bac h1:pGTMHCvVMoF7TcqbGtwN/xzzqhStzpZyodMQ56McNKE=
-github.com/yusuke-koyoshi/go-disk v0.0.0-20261013082327-e1c55b580bac/go.mod h1:rojbW5tVhH1cuVYFKZS+QX+VGXK45JVsRO+jW92kkKM=
+github.com/yusuke-koyoshi/go-disk v0.0.0-20261022183952-5ed7f84bec43 h1:YUR19MfNVpe9tB9ce0J9EfYTDNQLuqx5TbmtPy6wmOA=
+github.com/yusuke-koyoshi/go-disk v0.0.0-20261022183952-5ed7f84bec43/go.mod h1:rojbW5tVhH1cuVYFKZS+QX+VGXK45JVsRO+jW92kkKM=
 github.com/yusuke-koyoshi/go-ebs-file v0.0.0-20261013133232-c97f3d8d4243 h1:qQXytZZD0FpO0epDp4vBvQAdMaP+/Y6mht/XP8zPdy8=
 github.com/yusuke-koyoshi/go-ebs-file v0.0.0-20261013133232-c97f3d8d4243/go.mod h1:eQFGeBSy1OQWQf0cbJRvmU0j1TjlNf0WE/ADZve9gNs=
 github.com/yusuke-koyoshi/go-ext4-filesystem v0.0.0-20261012153933-244792f5018a h1:Tjlv31KJdilx4kv+krZ7H3jKb6bcaV4VcVAYFTZaLMI=
