@@ -47,7 +47,7 @@ func (w *VM) Walk(vreader *io.SectionReader, root string, opt Option, fn WalkFun
 	// This function will be called on each file.
 	w.analyzeFn = fn
 
-	driver, err := disk.NewDriver(vreader, checkFsFuncs...)
+	driver, err := disk.NewDriverWithSectorSize(vreader, opt.SectorSize, checkFsFuncs...)
 	if err != nil {
 		return xerrors.Errorf("failed to new disk driver: %w", err)
 	}

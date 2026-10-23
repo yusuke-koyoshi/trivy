@@ -112,7 +112,7 @@ require (
 	github.com/tetratelabs/wazero v1.12.0
 	github.com/twitchtv/twirp v8.1.3+incompatible
 	github.com/xlab/treeprint v1.2.0
-	github.com/yusuke-koyoshi/go-azure-managed-disks-file v0.0.0-20261020154932-aa14556c7c13
+	github.com/yusuke-koyoshi/go-azure-managed-disks-file v0.0.0-20261022182113-7e23fcdd1e60
 	github.com/zclconf/go-cty v1.19.0
 	github.com/zclconf/go-cty-yaml v1.2.0
 	go.etcd.io/bbolt v1.5.0

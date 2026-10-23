@@ -1024,8 +1024,8 @@ github.com/yuin/gopher-lua v1.1.1 h1:kYKnWBjvbNP4XLT3+bPEwAXJx262OhaHDWDVOPjL46M
 github.com/yuin/gopher-lua v1.1.1/go.mod h1:GBR0iDaNXjAgGg9zfCvksxSRnQx76gclCIb7kdAd1Pw=
 github.com/yusufpapurcu/wmi v1.2.4 h1:zFUKzehAFReQwLys1b/iSMl+JQGSCSjtVqQn9bBrPo0=
 github.com/yusufpapurcu/wmi v1.2.4/go.mod h1:SBZ9tNy3G9/m5Oi98Zks0QjeHVDvuK0qfxQmPyzfmi0=
-github.com/yusuke-koyoshi/go-azure-managed-disks-file v0.0.0-20261020154932-aa14556c7c13 h1:RJWV6c/LWxZ/xGWXYq6DNA0u6esA4yTvcg8f4zFh8i4=
-github.com/yusuke-koyoshi/go-azure-managed-disks-file v0.0.0-20261020154932-aa14556c7c13/go.mod h1:EsyTWlcByU/pTY4jkVwtxWLM2l6tecmPlzKQm14cVJk=
+github.com/yusuke-koyoshi/go-azure-managed-disks-file v0.0.0-20261022182113-7e23fcdd1e60 h1:C7SH/JmAlKJaNDgFdfI4Zx5sbk1SzYJk5QLDx43WQRY=
+github.com/yusuke-koyoshi/go-azure-managed-disks-file v0.0.0-20261022182113-7e23fcdd1e60/go.mod h1:EsyTWlcByU/pTY4jkVwtxWLM2l6tecmPlzKQm14cVJk=
 github.com/yusuke-koyoshi/go-disk v0.0.0-20261022183952-5ed7f84bec43 h1:YUR19MfNVpe9tB9ce0J9EfYTDNQLuqx5TbmtPy6wmOA=
 github.com/yusuke-koyoshi/go-disk v0.0.0-20261022183952-5ed7f84bec43/go.mod h1:rojbW5tVhH1cuVYFKZS+QX+VGXK45JVsRO+jW92kkKM=
 github.com/yusuke-koyoshi/go-ebs-file v0.0.0-20261013133232-c97f3d8d4243 h1:qQXytZZD0FpO0epDp4vBvQAdMaP+/Y6mht/XP8zPdy8=
