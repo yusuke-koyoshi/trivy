@@ -18,6 +18,10 @@ var defaultSkipDirs = []string{
 type Option struct {
 	SkipFiles []string
 	SkipDirs  []string
+
+	// SectorSize is the logical sector size of a VM disk, 512 or 4096. Zero
+	// detects it, which works only for GPT disks.
+	SectorSize int
 }
 
 type WalkFunc func(filePath string, info os.FileInfo, opener analyzer.Opener) error

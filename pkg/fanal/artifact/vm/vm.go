@@ -93,6 +93,12 @@ type Storage struct {
 }
 
 func (a *Storage) Analyze(ctx context.Context, r *io.SectionReader) (types.BlobInfo, error) {
+	return a.analyze(ctx, r, 0)
+}
+
+// analyze takes the sector size apart from artifact.Option, which holds the
+// user's settings, because the size is a fact of each disk.
+func (a *Storage) analyze(ctx context.Context, r *io.SectionReader, sectorSize int) (types.BlobInfo, error) {
 	// `errgroup` cancels the context after Wait returns, so it can’t be use later.
 	// We need a separate context specifically for Analyze.
 	eg, egCtx := errgroup.WithContext(ctx)
@@ -116,8 +122,11 @@ func (a *Storage) Analyze(ctx context.Context, r *io.SectionReader) (types.BlobI
 	}
 	defer composite.Cleanup()
 
+	walkerOpt := a.artifactOption.WalkerOption
+	walkerOpt.SectorSize = sectorSize
+
 	// TODO: Always walk from the root directory. Consider whether there is a need to be able to set optional
-	walkErr := a.walker.Walk(r, "/", a.artifactOption.WalkerOption, func(filePath string, info os.FileInfo, opener analyzer.Opener) error {
+	walkErr := a.walker.Walk(r, "/", walkerOpt, func(filePath string, info os.FileInfo, opener analyzer.Opener) error {
 		path := strings.TrimPrefix(filePath, "/")
 		if err := a.analyzer.AnalyzeFile(egCtx, eg, limit, result, "/", path, info, opener, nil, opts); err != nil {
 			return xerrors.Errorf("analyze file (%s): %w", path, err)

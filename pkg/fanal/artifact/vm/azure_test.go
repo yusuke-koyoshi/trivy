@@ -125,16 +125,24 @@ func (r *hostRouter) Do(req *http.Request) (*http.Response, error) {
 // partition, carries on whatever the read returns.
 type readingWalker struct {
 	mockWalker
+	sectorSize int
 }
 
 func (w *readingWalker) Walk(r *io.SectionReader, root string, opt walker.Option, fn walker.WalkFunc) error {
+	w.sectorSize = opt.SectorSize
 	_, _ = r.ReadAt(make([]byte, 512), 0)
 	return w.mockWalker.Walk(r, root, opt, fn)
 }
 
 func inspectAzure(t *testing.T, c cache.ArtifactCache, f *fakeAzure) (artifact.Reference, string, error) {
 	t.Helper()
-	w := &readingWalker{mockWalker{root: "testdata/alpine"}}
+	ref, logs, _, err := inspectAzureWalker(t, c, f)
+	return ref, logs, err
+}
+
+func inspectAzureWalker(t *testing.T, c cache.ArtifactCache, f *fakeAzure) (artifact.Reference, string, *readingWalker, error) {
+	t.Helper()
+	w := &readingWalker{mockWalker: mockWalker{root: "testdata/alpine"}}
 	a, err := vm.NewArtifact(vm.TypeAzure.Prefix()+azureSnapshotID, c, w, artifact.Option{})
 	require.NoError(t, err)
 	azure, ok := a.(*vm.Azure)
@@ -143,7 +151,7 @@ func inspectAzure(t *testing.T, c cache.ArtifactCache, f *fakeAzure) (artifact.R
 	var buf bytes.Buffer
 	vm.SetAzureClient(azure, &azfake.TokenCredential{}, f.transport(t), log.New(log.NewHandler(&buf, nil)))
 	ref, err := a.Inspect(t.Context())
-	return ref, buf.String(), err
+	return ref, buf.String(), w, err
 }
 
 func TestAzure_Inspect(t *testing.T) {
@@ -188,6 +196,16 @@ func TestAzure_Inspect(t *testing.T) {
 		require.ErrorContains(t, err, "was recreated during the scan")
 		assert.Equal(t, int64(1), f.revokes.Load(), "the SAS is revoked on failure")
 		cachetest.AssertBlobs(t, c, nil)
+	})
+
+	// A 4096-byte snapshot is exported only as VHDX, which the fake blob does not
+	// serve, so the pass-through is checked with the 512 Describe defaults to.
+	t.Run("logical sector size", func(t *testing.T) {
+		c := cachetest.NewCache(t, nil)
+		f := &fakeAzure{uniqueIDs: []string{"uid-1"}}
+		_, _, w, err := inspectAzureWalker(t, c, f)
+		require.NoError(t, err)
+		assert.Equal(t, 512, w.sectorSize, "fixed rather than detected")
 	})
 
 	t.Run("disk read fails", func(t *testing.T) {

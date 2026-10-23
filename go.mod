@@ -112,7 +112,7 @@ require (
 	github.com/tetratelabs/wazero v1.12.0
 	github.com/twitchtv/twirp v8.1.3+incompatible
 	github.com/xlab/treeprint v1.2.0
-	github.com/yusuke-koyoshi/go-azure-managed-disks-file v0.0.0-20261020154932-aa14556c7c13
+	github.com/yusuke-koyoshi/go-azure-managed-disks-file v0.0.0-20261022182113-7e23fcdd1e60
 	github.com/zclconf/go-cty v1.19.0
 	github.com/zclconf/go-cty-yaml v1.2.0
 	go.etcd.io/bbolt v1.5.0
@@ -497,6 +497,6 @@ replace github.com/masahiro331/go-xfs-filesystem => github.com/yusuke-koyoshi/go
 
 replace github.com/masahiro331/go-vmdk-parser => github.com/masahiro331/go-vmdk-parser v0.0.0-20261019230602-b5e948eded9e
 
-replace github.com/masahiro331/go-disk => github.com/yusuke-koyoshi/go-disk v0.0.0-20261021111723-61fc583e0298
+replace github.com/masahiro331/go-disk => github.com/yusuke-koyoshi/go-disk v0.0.0-20261022183952-5ed7f84bec43
 
 replace github.com/masahiro331/go-ebs-file => github.com/yusuke-koyoshi/go-ebs-file v0.0.0-20261021114121-a9e6e603a3af

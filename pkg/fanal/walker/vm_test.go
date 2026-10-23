@@ -2,7 +2,11 @@ package walker
 
 import (
 	"bytes"
+	"encoding/binary"
 	"io"
+	"os"
+	"slices"
+	"sync"
 	"testing"
 
 	"github.com/masahiro331/go-disk/gpt"
@@ -11,8 +15,53 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/aquasecurity/trivy/pkg/fanal/analyzer"
 	"github.com/aquasecurity/trivy/pkg/log"
 )
+
+type offsetRecorder struct {
+	r       io.ReaderAt
+	mu      sync.Mutex
+	offsets []int64
+}
+
+func (o *offsetRecorder) ReadAt(p []byte, off int64) (int, error) {
+	o.mu.Lock()
+	o.offsets = append(o.offsets, off)
+	o.mu.Unlock()
+	return o.r.ReadAt(p, off)
+}
+
+func TestVM_WalkSectorSize(t *testing.T) {
+	// An MBR disk with 4096-byte sectors whose only partition starts at LBA 1.
+	disk := make([]byte, 64<<10)
+	entry := disk[446:]
+	entry[4] = 0x83
+	binary.LittleEndian.PutUint32(entry[8:], 1)
+	binary.LittleEndian.PutUint32(entry[12:], 8)
+	disk[510], disk[511] = 0x55, 0xAA
+
+	tests := []struct {
+		name       string
+		sectorSize int
+		wantStart  int64
+	}{
+		{name: "fixed to 4096", sectorSize: 4096, wantStart: 4096},
+		// MBR has no field for the sector size, so detection takes 512.
+		{name: "detected", sectorSize: 0, wantStart: 512},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &offsetRecorder{r: bytes.NewReader(disk)}
+			sr := io.NewSectionReader(r, 0, int64(len(disk)))
+			err := NewVM().Walk(sr, "/", Option{SectorSize: tt.sectorSize}, func(string, os.FileInfo, analyzer.Opener) error {
+				return nil
+			})
+			require.NoError(t, err)
+			assert.True(t, slices.Contains(r.offsets, tt.wantStart), "partition start not read, offsets: %v", r.offsets)
+		})
+	}
+}
 
 func TestDetectLVM(t *testing.T) {
 	w := &VM{

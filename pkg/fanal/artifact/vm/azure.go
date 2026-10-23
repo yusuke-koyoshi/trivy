@@ -113,15 +113,17 @@ func (a *Azure) Inspect(ctx context.Context) (artifact.Reference, error) {
 
 	// The snapshot can be recreated between the first lookup and the grant,
 	// which would store the result of the new snapshot under the old key.
-	grantedID, err := snapshot.UniqueID(ctx, a.cred, a.resourceID, a.options)
+	info, err := snapshot.Describe(ctx, a.cred, a.resourceID, a.options)
 	if err != nil {
 		return artifact.Reference{}, xerrors.Errorf("Azure snapshot error: %w", err)
 	}
-	if grantedID != uniqueID {
+	if info.UniqueID != uniqueID {
 		return artifact.Reference{}, xerrors.Errorf("Azure snapshot %s was recreated during the scan", a.resourceID)
 	}
+	a.logger.Debug("Snapshot described", log.Int("logical_sector_size", info.LogicalSectorSize))
 
-	blobInfo, err := a.Analyze(ctx, sr)
+	// Detection from the partition table misses MBR disks with 4096-byte sectors.
+	blobInfo, err := a.analyze(ctx, sr, info.LogicalSectorSize)
 	if err != nil {
 		return artifact.Reference{}, xerrors.Errorf("inspection error: %w", err)
 	}
